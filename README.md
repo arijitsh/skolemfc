@@ -81,7 +81,7 @@ Please click on "issues" at the top and [create a new issue](https://github.com/
 
 This work is by Arijit Shaw, Brendan Juba, and Kuldeep S. Meel, as [published in AAAI-24](https://arxiv.org/abs/2312.12026).
 
-The benchmarks used in our evaluation can be found [here](https://zenodo.org/records/10449477).
+The benchmarks used in our evaluation can be found [here](https://zenodo.org/records/10404174).
 
 ## Old Versions
 The old version, is available under the branch "paper". Please read the README of the old release to know how to compile the code. Old releases should easily compile.
