@@ -27,15 +27,16 @@
 #include "skolemfc.h"
 
 #include "GitSHA1.h"
+#include "skolemfc-int.h"
 
-using namespace SkolemFC;
+using namespace SkolemFCInt;
 using CMSat::Lit;
 
-struct SkolemFC::SklPrivateData
+struct SkolemFC::SklFCPrivate
 {
-  SklPrivateData(SkolemFC::SklFC* _p) : p(_p) {}
-  ~SklPrivateData() { delete p; }
-  SkolemFC::SklFC* p = NULL;
+  SklFCPrivate(SkolemFCInt::SklFCInt* _p) : p(_p) {}
+  ~SklFCPrivate() { delete p; }
+  SkolemFCInt::SklFCInt* p = NULL;
 };
 
 SkolemFC::SklFC::SklFC(const double epsilon,
@@ -43,8 +44,8 @@ SkolemFC::SklFC::SklFC(const double epsilon,
                        const uint32_t seed,
                        const uint32_t verbosity)
 {
-  skolemfc =
-      new SklPrivateData(new SkolemFC::SklFC(epsilon, delta, seed, verbosity));
+  skolemfc = new SklFCPrivate(
+      new SkolemFCInt::SklFCInt(epsilon, delta, seed, verbosity));
 }
 SkolemFC::SklFC::~SklFC() { delete skolemfc; }
 
@@ -58,13 +59,13 @@ bool SkolemFC::SklFC::add_clause(const std::vector<Lit>& cl)
 
 const char* SkolemFC::SklFC::get_version_info()
 {
-  return SkolemFC::get_version_sha1();
+  return SkolemFCInt::get_version_sha1();
 }
 const char* SkolemFC::SklFC::get_compilation_env()
 {
-  return SkolemFC::get_compilation_env();
+  return SkolemFCInt::get_compilation_env();
 }
 
-void SklFC::set_verbosity(uint32_t verb) {}
+void SkolemFC::SklFC::set_verbosity(uint32_t verb) {}
 
-void SklFC::set_seed(uint32_t seed) {}
+void SkolemFC::SklFC::set_seed(uint32_t seed) {}

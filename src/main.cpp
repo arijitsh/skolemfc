@@ -58,13 +58,16 @@ using std::vector;
 using namespace CMSat;
 using namespace SkolemFC;
 
-po::options_description skolemfc_options =
-    po::options_description("skolemfc options");
+po::options_description main_options = po::options_description("Main options");
 po::options_description help_options;
 po::variables_map vm;
 po::positional_options_description p;
 double startTime;
-SkolemFC::Config conf;
+uint32_t verbosity = 1;
+uint32_t seed = 0;
+double epsilon = 0.8;
+double delta = 0.8;
+string logfilename;
 SkolemFC::SklFC* skolemfc = NULL;
 string elimtofile;
 string recover_file;
@@ -83,37 +86,42 @@ bool gates = true;
 
 void add_skolemfc_options()
 {
-  conf.verb = 1;
+  std::ostringstream my_epsilon;
 
-  skolemfc_options.add_options()("help,h", "produce help message")(
-      "absolute,a", "get the absolute count, no approximation")(
-      "count,c", "count from already created sampling files")(
-      "sample,s", "create sampling files only")("exact,x",
-                                                "use in exact counting mode")(
-      "delta,d",
-      po::value<double>()->default_value(0.8),
-      "value for delta [0 .. 1] (0.8)")("epsilon,e",
-                                        po::value<double>()->default_value(0.8),
-                                        "value for epsilon [0 .. 1] (0.8)")(
-      "limit,l",
-      po::value<int>()->default_value(0),
-      "limit the number of sampling files [integer]")(
-      "timeout,t",
-      po::value<int>()->default_value(36000),
-      "limit the timeout in seconds [integer]")(
-      "filename", po::value<std::string>(), "input file");
+  std::ostringstream my_delta;
+  std::ostringstream my_var_elim_ratio;
 
-  po::options_description debug_options("Debug options");
-  debug_options.add_options()("exact,x", "use in exact counting mode");
+  my_epsilon << std::setprecision(8) << epsilon;
+  my_delta << std::setprecision(8) << delta;
 
-  help_options.add(skolemfc_options);
-  help_options.add(debug_options);
+  main_options.add_options()("help,h", "Prints help")(
+      "input", po::value<string>(), "file to read")(
+      "verb,v", po::value(&verbosity)->default_value(1), "verbosity")(
+      "seed,s", po::value(&seed)->default_value(seed), "Seed")(
+      "version", "Print version info")
+
+      ("epsilon,e",
+       po::value(&epsilon)->default_value(epsilon, my_epsilon.str()),
+       "Tolerance parameter, i.e. how close is the count from the correct "
+       "count? Count output is within bounds of (exact_count/(1+e)) < count < "
+       "(exact_count*(1+e)). So e=0.8 means we'll output at most 180%% of "
+       "exact count and at least 55%% of exact count. Lower value means more "
+       "precise.")(
+          "delta,d",
+          po::value(&delta)->default_value(delta, my_delta.str()),
+          "Confidence parameter, i.e. how sure are we of the result? (1-d) = "
+          "probability the count is within range as per epsilon parameter. So "
+          "d=0.2 means we are 80%% sure the count is within range as specified "
+          "by epsilon. The lower, the higher confidence we have in the count.")(
+          "log", po::value(&logfilename), "Logs of SkolemFC execution");
+
+  help_options.add(main_options);
 }
 
 void add_supported_options(int argc, char** argv)
 {
   add_skolemfc_options();
-  p.add("input", -1);
+  p.add("input", 1);
 
   try
   {
@@ -124,9 +132,9 @@ void add_supported_options(int argc, char** argv)
               vm);
     if (vm.count("help"))
     {
-      cout << "Minimal projection set finder and simplifier." << endl
-           << endl
-           << "skolemfc [options] inputfile [outputfile]" << endl;
+      cout << "Approximate Skolem Function counter" << endl;
+
+      cout << "approxmc [options] inputfile" << endl << endl;
 
       cout << help_options << endl;
       std::exit(0);
@@ -134,10 +142,7 @@ void add_supported_options(int argc, char** argv)
 
     if (vm.count("version"))
     {
-      cout << "c [skolemfc] SHA revision: " << skolemfc->get_version_info()
-           << endl;
-      cout << "c [skolemfc] Compilation environment: "
-           << skolemfc->get_compilation_env() << endl;
+      cout << skolemfc->get_version_info();
       std::exit(0);
     }
 
@@ -149,7 +154,7 @@ void add_supported_options(int argc, char** argv)
     cerr << "ERROR: Some option you gave was wrong. Please give '--help' to "
             "get help"
          << endl
-         << "       Unkown option: " << c.what() << endl;
+         << "       Unknown option: " << c.what() << endl;
     std::exit(-1);
   }
   catch (boost::bad_any_cast& e)
@@ -262,9 +267,9 @@ void readInAFile(const string& filename)
 
 void set_config(SkolemFC::SklFC* skl)
 {
-  cout << "c [skolemfc] using seed: " << conf.seed << endl;
-  skl->set_verbosity(conf.verb);
-  skl->set_seed(conf.seed);
+  cout << "c [skolemfc] using seed: " << seed << endl;
+  skl->set_verbosity(verbosity);
+  skl->set_seed(seed);
 }
 
 int main(int argc, char** argv)
@@ -285,21 +290,22 @@ int main(int argc, char** argv)
     }
   }
   add_supported_options(argc, argv);
-  skolemfc =
-      new SkolemFC::SklFC(conf.epsilon, conf.delta, conf.seed, conf.verb);
 
-  cout << "c [sklfc] SklFC Version: " << skolemfc->get_version_info() << endl;
-  if (conf.verb >= 2)
+  skolemfc = new SkolemFC::SklFC(epsilon, delta, seed, verbosity);
+
+  cout << "c [sklfc] SkolemFC Version: " << skolemfc->get_version_info()
+       << endl;
+  if (verbosity >= 2)
   {
     cout << "c [sklfc] compilation environment: "
          << skolemfc->get_compilation_env() << endl;
-
-    cout << "c [sklfc] executed with command line: " << command_line << endl;
   }
 
+  cout << "c [sklfc] executed with command line: " << command_line << endl;
+
   double starTime = cpuTime();
-  cout << "c [sklfc] using epsilon: " << conf.epsilon
-       << " delta: " << conf.delta << " seed: " << conf.seed << endl;
+  cout << "c [sklfc] using epsilon: " << epsilon << " delta: " << delta
+       << " seed: " << seed << endl;
 
   // parsing the input
   if (vm.count("input") == 0)
@@ -307,6 +313,7 @@ int main(int argc, char** argv)
     cout << "ERROR: you must pass a file" << endl;
     exit(-1);
   }
+  cout << "Okay " << vm["input"].as<string>() << endl;
   const string inp = vm["input"].as<string>();
   readInAFile(inp);
 

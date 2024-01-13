@@ -40,12 +40,9 @@
 
 namespace SkolemFC {
 
-struct SklPrivateData;
-#ifdef _WIN32
-class __declspec(dllexport) SklFC
-#else
-class SklFC
-#endif
+struct SklFCPrivate;
+
+struct SklFC
 {
  public:
   SklFC(const double epsilon = 0.5,
@@ -67,9 +64,10 @@ class SklFC
   void set_verbosity(uint32_t verb);
 
  private:
-  SklPrivateData* skolemfc = NULL;
+  SklFCPrivate* skolemfc = NULL;
   uint32_t nvars = 0;
 };
+
 }  // namespace SkolemFC
 
 #endif

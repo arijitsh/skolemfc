@@ -24,12 +24,46 @@
  THE SOFTWARE.
 ***********************************************/
 
-#pragma once
+#include "skolemfc-int.h"
 
-namespace SkolemFCInt {
+#include <math.h>
+#include <string.h>
 
-const char* get_version_sha1();
-const char* get_version_tag();
-const char* get_compilation_env();
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <random>
 
-}  // namespace SkolemFCInt
+#include "GitSHA1.h"
+#include "time_mem.h"
+
+using std::cout;
+using std::endl;
+
+using namespace SkolemFCInt;
+
+SklFCInt::SklFCInt(const double _epsilon,
+                   const double _delta,
+                   const uint32_t seed,
+                   const uint32_t _verbosity)
+{
+  epsilon = _epsilon;
+  delta = _delta;
+  verbosity = _verbosity;
+}
+
+SklFCInt::~SklFCInt() {}
+
+const char* SklFCInt::get_version_info() const
+{
+  return SkolemFCInt::get_version_sha1();
+}
+
+const char* SklFCInt::get_compilation_env() const
+{
+  return SkolemFCInt::get_compilation_env();
+}
+
+bool SklFCInt::add_clause(const vector<Lit>& cl) { return false; }
+
+void SklFCInt::check_ready() const {}
