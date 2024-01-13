@@ -1,0 +1,19 @@
+# Config file for the @EXPORT_TYPE@ cryptominisat Package
+# It defines the following variables
+#  SKOLEMFC_INCLUDE_DIRS - include directories for cryptominisat5
+#  SKOLEMFC_LIBRARIES    - libraries to link against
+#  SKOLEMFC_EXECUTABLE   - the cryptominisat executable
+
+# Compute paths
+get_filename_component(SKOLEMFC_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+set(SKOLEMFC_INCLUDE_DIRS "@CONF_INCLUDE_DIRS@")
+
+# Our library dependencies (contains definitions for IMPORTED targets)
+include("${SKOLEMFC_CMAKE_DIR}/@SKOLEMFC_TARGETS_FILENAME@")
+
+# These are IMPORTED targets created by @SKOLEMFC_TARGETS_FILENAME@
+set(SKOLEMFC_LIBRARIES skolemfc)
+set(SKOLEMFC_STATIC_LIBRARIES skolemfc)
+set(SKOLEMFC_VERSION_MAJOR @PROJECT_VERSION_MAJOR@)
+set(SKOLEMFC_VERSION_MINOR @PROJECT_VERSION_MINOR@)
+set(SKOLEMFC_EXECUTABLE skolemfc)
