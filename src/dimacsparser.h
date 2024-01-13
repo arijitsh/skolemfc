@@ -358,7 +358,7 @@ bool DimacsParser<C, S>::parse_DIMACS_main(C& in)
         if (verbosity)
         {
           std::cout << "c WARNING: Empty line at line number " << lineNum + 1
-                    << " -- this is not part of the DIMACS specifications ("
+                    << " -- this is not part of the QDIMACS specifications ("
                     << dimacs_spec << "). Ignoring." << endl;
         }
         in.skipLine();
@@ -451,7 +451,10 @@ bool DimacsParser<C, S>::parseForallVars(C& in)
     }
     uint32_t var = std::abs(parsed_lit) - 1;
     forall_vars.push_back(var);
+    forall_vars_added++;
   }
+  in.skipLine();
+  lineNum++;
   return true;
 }
 
@@ -470,8 +473,11 @@ bool DimacsParser<C, S>::parseExistsVars(C& in)
       break;
     }
     uint32_t var = std::abs(parsed_lit) - 1;
-    forall_vars.push_back(var);
+    exists_vars.push_back(var);
+    exists_vars_added++;
   }
+  in.skipLine();
+  lineNum++;
   return true;
 }
 

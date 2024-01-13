@@ -239,10 +239,12 @@ void readInAFile(const string& filename)
 {
 #ifndef USE_ZLIB
   FILE* in = fopen(filename.c_str(), "rb");
-  DimacsParser<StreamBuffer<FILE*, FN>, SklFC> parser(skolemfc, NULL, 0);
+  DimacsParser<StreamBuffer<FILE*, FN>, SklFC> parser(
+      skolemfc, NULL, verbosity);
 #else
   gzFile in = gzopen(filename.c_str(), "rb");
-  DimacsParser<StreamBuffer<gzFile, GZ>, SklFC> parser(skolemfc, NULL, 0);
+  DimacsParser<StreamBuffer<gzFile, GZ>, SklFC> parser(
+      skolemfc, NULL, verbosity);
 #endif
 
   if (in == NULL)
@@ -313,7 +315,6 @@ int main(int argc, char** argv)
     cout << "ERROR: you must pass a file" << endl;
     exit(-1);
   }
-  cout << "Okay " << vm["input"].as<string>() << endl;
   const string inp = vm["input"].as<string>();
   readInAFile(inp);
 
