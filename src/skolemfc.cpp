@@ -55,6 +55,12 @@ void SkolemFC::SklFC::new_vars(uint32_t num) { nvars += num; }
 bool SkolemFC::SklFC::add_clause(const std::vector<Lit>& cl)
 {
   return skolemfc->p->add_clause(cl);
+  // TODO this goes nowhere
+}
+
+bool SkolemFC::SklFC::set_forall_vars(const std::vector<uint32_t>& vars)
+{
+  // TODO fix variables here
 }
 
 const char* SkolemFC::SklFC::get_version_info()

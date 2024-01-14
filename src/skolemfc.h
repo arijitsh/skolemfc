@@ -58,6 +58,8 @@ struct SklFC
   void new_var();
   void new_vars(uint32_t num);
   bool add_clause(const std::vector<CMSat::Lit>& lits);
+  bool set_forall_vars(const std::vector<uint32_t>& vars);
+  bool set_exists_vars(const std::vector<uint32_t>& vars);
 
   // Set config
   void set_seed(uint32_t seed);
