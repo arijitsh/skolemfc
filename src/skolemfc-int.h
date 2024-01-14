@@ -121,7 +121,7 @@ struct SklFCInt
   vector<vector<Lit>> g_formula_clauses;
   vector<uint32_t> exists_vars;
   vector<uint32_t> forall_vars;
-  std::vector<Lit> newClause, diffClause;
+  std::vector<Lit> new_clause, diff_clause;
 };
 
 }  // namespace SkolemFCInt

@@ -76,66 +76,87 @@ bool SkolemFCInt::SklFCInt::add_exists_var(uint32_t e_var)
   return true;
 }
 
-void printFormula(const vector<vector<Lit>>& formula) {
+void printFormula(const vector<vector<Lit>>& formula)
+{
   cout << "c Below is G formula" << endl;
-    for (const auto& clause : formula) {
-      cout << "c ";
-        for (const Lit& lit : clause) {
-           cout << lit << " ";
-        }
-       cout << endl;
+  for (const auto& clause : formula)
+  {
+    cout << "c ";
+    for (const Lit& lit : clause)
+    {
+      cout << lit << " ";
     }
+    cout << endl;
+  }
   cout << "c Finished printing G formula" << endl;
-
-
 }
-
 
 bool SkolemFCInt::SklFCInt::create_g_formula()
 {
+  g_formula_clauses.clear();
+  std::vector<uint32_t> mapped_exists_vars(exists_vars.size());
+  // Create a mapping for exists_vars to new variables
+  for (size_t i = 0; i < exists_vars.size(); ++i)
+  {
+    mapped_exists_vars[i] =
+        nVars() + i;  // New variable starting from nVars + 1
+    cout << "c " << i << " maps to y' " << mapped_exists_vars[i] << endl;
+  }
+
   // Add F(X, Y') to g_formula_clauses
-  uint32_t numvars = nVars();
-  cout << "c nvars = " << numvars << endl;
   for (const auto& clause : clauses)
   {
     g_formula_clauses.push_back(clause);
-    newClause.clear();
+    new_clause.clear();
     for (const Lit& lit : clause)
     {
       uint32_t var = lit.var();
-      // Check if the variable is in exists_vars (Y)
-      if (std::find(exists_vars.begin(), exists_vars.end(), var)
-          != exists_vars.end())
+      auto it = std::find(exists_vars.begin(), exists_vars.end(), var);
+      if (it != exists_vars.end())
       {
-        // Replace Y variable with Y' variable (Y' = Y + offset)
-        newClause.push_back(Lit(var + exists_vars.size(), lit.sign()));
+        // Map Y variable to corresponding Y' variable
+        size_t index = std::distance(exists_vars.begin(), it);
+        new_clause.push_back(Lit(mapped_exists_vars[index], lit.sign()));
       }
       else
       {
-        newClause.push_back(lit);
+        new_clause.push_back(lit);
       }
     }
-    g_formula_clauses.push_back(newClause);
+    g_formula_clauses.push_back(new_clause);
   }
 
   // Add (Y ≠ Y') to g_formula_clauses
-  for (uint32_t y : exists_vars)
-  {
-    diffClause.clear();
-    diffClause.push_back(Lit(y, false));           // Y
-    diffClause.push_back(~Lit(y + nvars, false));  // Not Y'
-    g_formula_clauses.push_back(diffClause);
 
-    diffClause.clear();
-    diffClause.push_back(~Lit(y, false));         // Not Y
-    diffClause.push_back(Lit(y + nvars, false));  // Y'
-    g_formula_clauses.push_back(diffClause);
+  diff_clause.clear();
+  for (size_t i = 0; i < exists_vars.size(); ++i)
+  {
+    uint32_t y = exists_vars[i];
+    uint32_t y_prime = nVars() + i;
+    uint32_t aux_y = nVars() + exists_vars.size()
+                     + i;  // Auxiliary variable for each pair y, y'
+    if (verbosity > 2)
+    {
+      cout << "c y: " << y + 1 << ", y': " << y_prime + 1
+           << ", aux_y: " << aux_y + 1 << endl;
+    }
+
+    // Clauses (y, y', -aux_y) and (-y, -y', -aux_y)
+    g_formula_clauses.push_back(
+        {Lit(y, false), Lit(y_prime, false), ~Lit(aux_y, false)});
+    g_formula_clauses.push_back(
+        {~Lit(y, false), ~Lit(y_prime, false), ~Lit(aux_y, false)});
+
+    // Collect aux_y for the final clause
+    diff_clause.push_back(Lit(aux_y, false));
   }
+
+  g_formula_clauses.push_back(diff_clause);
+
   cout << "c [sklfc] G formula created with " << g_formula_clauses.size()
        << " clauses" << endl;
-  if (verbosity > 2 ) printFormula(g_formula_clauses);
+  if (verbosity > 2) printFormula(g_formula_clauses);
 }
-
 
 bool SkolemFCInt::SklFCInt::add_forall_var(uint32_t a_var)
 {

@@ -70,7 +70,6 @@ struct SklFC
 
  private:
   SklFCPrivate* skolemfc = NULL;
-  uint32_t nvars = 0;
 };
 
 }  // namespace SkolemFC

@@ -49,8 +49,8 @@ SkolemFC::SklFC::SklFC(const double epsilon,
 }
 SkolemFC::SklFC::~SklFC() { delete skolemfc; }
 
-uint32_t SkolemFC::SklFC::nVars() { return nvars; }
-void SkolemFC::SklFC::new_vars(uint32_t num) { nvars += num; }
+uint32_t SkolemFC::SklFC::nVars() { return skolemfc->p->nvars; }
+void SkolemFC::SklFC::new_vars(uint32_t num) { skolemfc->p->nvars += num; }
 
 bool SkolemFC::SklFC::add_clause(const std::vector<Lit>& cl)
 {
