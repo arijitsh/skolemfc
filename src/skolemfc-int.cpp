@@ -76,6 +76,48 @@ bool SkolemFCInt::SklFCInt::add_exists_var(uint32_t e_var)
   return true;
 }
 
+bool SkolemFCInt::SklFCInt::create_g_formula()
+{
+  // Add F(X, Y') to g_formula_clauses
+  for (const auto& clause : clauses)
+  {
+    g_formula_clauses.push_back(clause);
+    newClause.clear();
+    for (const Lit& lit : clause)
+    {
+      uint32_t var = lit.var();
+      // Check if the variable is in exists_vars (Y)
+      if (std::find(exists_vars.begin(), exists_vars.end(), var)
+          != exists_vars.end())
+      {
+        // Replace Y variable with Y' variable (Y' = Y + offset)
+        newClause.push_back(Lit(var + exists_vars.size(), lit.sign()));
+      }
+      else
+      {
+        newClause.push_back(lit);
+      }
+    }
+    g_formula_clauses.push_back(newClause);
+  }
+
+  // Add (Y ≠ Y') to g_formula_clauses
+  for (uint32_t y : exists_vars)
+  {
+    diffClause.clear();
+    diffClause.push_back(Lit(y, false));           // Y
+    diffClause.push_back(~Lit(y + nvars, false));  // Not Y'
+    g_formula_clauses.push_back(diffClause);
+
+    diffClause.clear();
+    diffClause.push_back(~Lit(y, false));         // Not Y
+    diffClause.push_back(Lit(y + nvars, false));  // Y'
+    g_formula_clauses.push_back(diffClause);
+  }
+  cout << "c [sklfc] G formula created with " << g_formula_clauses.size()
+       << " clauses" << endl;
+}
+
 bool SkolemFCInt::SklFCInt::add_forall_var(uint32_t a_var)
 {
   forall_vars.push_back(a_var);

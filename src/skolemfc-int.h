@@ -101,6 +101,7 @@ struct SklFCInt
   void set_n_cls(uint32_t n_cls);
   const char* get_version_info() const;
   const char* get_compilation_env() const;
+  bool create_g_formula();
 
   uint32_t nvars = 0;
   uint32_t n_cls_declared = 0;
@@ -117,8 +118,10 @@ struct SklFCInt
   uint64_t num_cl_added = 0;
   uint32_t verbosity;
   vector<vector<Lit>> clauses;
+  vector<vector<Lit>> g_formula_clauses;
   vector<uint32_t> exists_vars;
   vector<uint32_t> forall_vars;
+  std::vector<Lit> newClause, diffClause;
 };
 
 }  // namespace SkolemFCInt

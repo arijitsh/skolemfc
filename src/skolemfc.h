@@ -62,6 +62,7 @@ struct SklFC
   bool add_exists_var(uint32_t var);
 
   void check_ready();
+  uint64_t count();
 
   // Set config
   void set_seed(uint32_t seed);

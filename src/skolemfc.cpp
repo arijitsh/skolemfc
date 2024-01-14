@@ -69,6 +69,15 @@ bool SkolemFC::SklFC::add_forall_var(uint32_t var)
 
 void SkolemFC::SklFC::check_ready() { skolemfc->p->check_ready(); }
 
+uint64_t SkolemFC::SklFC::count()
+{
+  uint64_t logcount = 0;
+
+  skolemfc->p->create_g_formula();
+
+  return logcount;
+}
+
 const char* SkolemFC::SklFC::get_version_info()
 {
   return SkolemFCInt::get_version_sha1();
