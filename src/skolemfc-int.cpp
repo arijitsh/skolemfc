@@ -76,9 +76,26 @@ bool SkolemFCInt::SklFCInt::add_exists_var(uint32_t e_var)
   return true;
 }
 
+void printFormula(const vector<vector<Lit>>& formula) {
+  cout << "c Below is G formula" << endl;
+    for (const auto& clause : formula) {
+      cout << "c ";
+        for (const Lit& lit : clause) {
+           cout << lit << " ";
+        }
+       cout << endl;
+    }
+  cout << "c Finished printing G formula" << endl;
+
+
+}
+
+
 bool SkolemFCInt::SklFCInt::create_g_formula()
 {
   // Add F(X, Y') to g_formula_clauses
+  uint32_t numvars = nVars();
+  cout << "c nvars = " << numvars << endl;
   for (const auto& clause : clauses)
   {
     g_formula_clauses.push_back(clause);
@@ -116,7 +133,9 @@ bool SkolemFCInt::SklFCInt::create_g_formula()
   }
   cout << "c [sklfc] G formula created with " << g_formula_clauses.size()
        << " clauses" << endl;
+  if (verbosity > 2 ) printFormula(g_formula_clauses);
 }
+
 
 bool SkolemFCInt::SklFCInt::add_forall_var(uint32_t a_var)
 {
