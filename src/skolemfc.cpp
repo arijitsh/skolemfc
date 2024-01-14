@@ -26,6 +26,8 @@
 
 #include "skolemfc.h"
 
+#include <approxmc/approxmc.h>
+
 #include "GitSHA1.h"
 #include "skolemfc-int.h"
 
@@ -73,7 +75,29 @@ uint64_t SkolemFC::SklFC::count()
 {
   uint64_t logcount = 0;
 
+  ApproxMC::AppMC appmc;
+  appmc.new_vars(skolemfc->p->nVars());
+  for (auto& clause : skolemfc->p->clauses)
+  {
+    appmc.add_clause(clause);
+  }
+  appmc.set_projection_set(skolemfc->p->forall_vars);
+  ApproxMC::SolCount c = appmc.count();
+  uint64_t f_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
+  cout << "c [sklfc] F formula has (projected) count: " << f_cnt << endl;
+
   skolemfc->p->create_g_formula();
+
+  ApproxMC::AppMC appmc_g;
+  appmc_g.new_vars(skolemfc->p->nGVars());
+  for (auto& clause : skolemfc->p->g_formula_clauses)
+  {
+    appmc_g.add_clause(clause);
+  }
+  appmc_g.set_projection_set(skolemfc->p->forall_vars);
+  c = appmc_g.count();
+  uint64_t g_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
+  cout << "c [sklfc] G formula has (projected) count: " << g_cnt << endl;
 
   return logcount;
 }

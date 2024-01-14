@@ -333,6 +333,64 @@ else()
     message(FATAL_ERROR "Cannot find CryptoMiniSat5. Please install it! Exiting.")
 endif()
 
+
+# -----------------------------------------------------------------------------
+# Find UniGen
+# -----------------------------------------------------------------------------
+option(NOUNIGEN "Don't try to use UniSamp" OFF)
+
+if (NOT NOUNIGEN)
+  set(unigen_DIR "" CACHE PATH "Path to directory containing unigenConfig.cmake") #AS: No clue
+
+  find_package(louvain_communities CONFIG)
+  if (louvain_communities_FOUND)
+      message(STATUS "Found Louvain Communities library")
+      message(STATUS "Louvain Communities dynamic lib: ${LOUVAIN_COMMUNITIES_LIBRARIES}")
+      message(STATUS "Louvain Communities include dirs: ${LOUVAIN_COMMUNITIES_INCLUDE_DIRS}")
+  else()
+      message(WARNING "Cannot find Louvain Communities libraries.")
+  endif()
+  find_package(arjun CONFIG)
+  if (arjun_FOUND)
+      message(STATUS "Found Arjun")
+      message(STATUS "Arjun dynamic lib : ${ARJUN_LIBRARIES}")
+      message(STATUS "Arjun include dirs: ${ARJUN_INCLUDE_DIRS}")
+      include_directories(SYSTEM ${ARJUN_INCLUDE_DIRS})
+  else()
+      message(FATAL_ERROR "Cannot find Arjun. Please install it! Exiting.")
+  endif()
+  find_package(approxmc CONFIG)
+  if (approxmc_FOUND)
+    message(STATUS "Found approxmc")
+    message(STATUS "ApproxMC dynamic lib: ${APPROXMC_LIBRARIES}")
+    message(STATUS "ApproxMC static lib:  ${APPROXMC_STATIC_LIBRARIES}")
+    message(STATUS "ApproxMC static lib deps: ${APPROXMC_STATIC_LIBRARIES_DEPS}")
+    message(STATUS "ApproxMC include dirs: ${APPROXMC_INCLUDE_DIRS}")
+  else()
+    message(FATAL_ERROR "Cannot find ApproxMC. Please install it! Exiting.")
+  endif()
+
+  find_package(unigen CONFIG)
+  if (unigen_FOUND)
+    message(STATUS "UniGen dynamic lib: ${UNIGEN_LIBRARIES}")
+    message(STATUS "UniGen static lib:  ${UNIGEN_STATIC_LIBRARIES}")
+    message(STATUS "UniGen static lib deps: ${UNIGEN_STATIC_LIBRARIES_DEPS}")
+    message(STATUS "UniGen include dirs: ${UNIGEN_INCLUDE_DIRS}")
+    add_definitions(-DUSE_UNIGEN)
+    set(USE_UNIGEN ON)
+    include_directories(SYSTEM ${UNIGEN_INCLUDE_DIRS})
+  else()
+    message(STATUS "UniGen NOT found")
+  endif()
+endif()
+MESSAGE(STATUS "Enables Uniform Sampling, allows --unisamp option")
+
+option(FORCE_UNIG "Must build with UniGen" OFF)
+if (FORCE_UNIG AND NOT USE_UNIGEN)
+    message(FATAL_ERROR "UniSamp was not found but it was requested. Exiting.")
+endif()
+
+
 # -----------------------------------------------------------------------------
 # Add GIT version
 # -----------------------------------------------------------------------------

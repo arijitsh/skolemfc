@@ -97,6 +97,7 @@ struct SklFCInt
   void check_ready() const;
 
   uint32_t nVars() const { return nvars; }
+  uint32_t nGVars() const { return n_g_vars; }
 
   void set_n_cls(uint32_t n_cls);
   const char* get_version_info() const;
@@ -104,6 +105,7 @@ struct SklFCInt
   bool create_g_formula();
 
   uint32_t nvars = 0;
+  uint32_t n_g_vars = 0;
   uint32_t n_cls_declared = 0;
   double epsilon;
   double delta;

@@ -100,7 +100,6 @@ bool SkolemFCInt::SklFCInt::create_g_formula()
   {
     mapped_exists_vars[i] =
         nVars() + i;  // New variable starting from nVars + 1
-    cout << "c " << i << " maps to y' " << mapped_exists_vars[i] << endl;
   }
 
   // Add F(X, Y') to g_formula_clauses
@@ -152,9 +151,10 @@ bool SkolemFCInt::SklFCInt::create_g_formula()
   }
 
   g_formula_clauses.push_back(diff_clause);
+  n_g_vars = nVars() + 2 * exists_vars.size();
 
   cout << "c [sklfc] G formula created with " << g_formula_clauses.size()
-       << " clauses" << endl;
+       << " clauses and " << nGVars() << " variables." << endl;
   if (verbosity > 2) printFormula(g_formula_clauses);
 }
 
