@@ -64,6 +64,27 @@ const char* SklFCInt::get_compilation_env() const
   return SkolemFCInt::get_compilation_env();
 }
 
-bool SklFCInt::add_clause(const vector<Lit>& cl) { return false; }
+bool SklFCInt::add_clause(const vector<Lit>& cl)
+{
+  clauses.push_back(cl);
+  return false;
+}
 
-void SklFCInt::check_ready() const {}
+bool SkolemFCInt::SklFCInt::add_exists_var(uint32_t e_var)
+{
+  exists_vars.push_back(e_var);
+  return true;
+}
+
+bool SkolemFCInt::SklFCInt::add_forall_var(uint32_t a_var)
+{
+  forall_vars.push_back(a_var);
+  return true;
+}
+
+void SklFCInt::check_ready() const
+{
+  cout << "c solver got clauses: " << clauses.size()
+       << " e vars: " << exists_vars.size() << " a vars: " << forall_vars.size()
+       << endl;
+}

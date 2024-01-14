@@ -318,6 +318,8 @@ int main(int argc, char** argv)
   const string inp = vm["input"].as<string>();
   readInAFile(inp);
 
+  skolemfc->check_ready();
+
   cout << "c [sklfc] finished T: " << std::setprecision(2) << std::fixed
        << (cpuTime() - starTime) << endl;
 

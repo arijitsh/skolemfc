@@ -91,6 +91,9 @@ struct SklFCInt
 
   bool add_clause(const vector<Lit>& cl);
 
+  bool add_exists_var(uint32_t e_var);
+  bool add_forall_var(uint32_t a_var);
+
   void check_ready() const;
 
   uint32_t nVars() const { return nvars; }
@@ -113,6 +116,9 @@ struct SklFCInt
   mpz_t prod_precision;
   uint64_t num_cl_added = 0;
   uint32_t verbosity;
+  vector<vector<Lit>> clauses;
+  vector<uint32_t> exists_vars;
+  vector<uint32_t> forall_vars;
 };
 
 }  // namespace SkolemFCInt

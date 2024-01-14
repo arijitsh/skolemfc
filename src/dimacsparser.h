@@ -81,7 +81,6 @@ class DimacsParser
   bool parseWeight(C& in);
   bool parseForallVars(C& in);
   bool parseExistsVars(C& in);
-  bool parseIndependentSet(C& in);
   std::string get_debuglib_fname() const;
 
   S* solver;
@@ -450,7 +449,7 @@ bool DimacsParser<C, S>::parseForallVars(C& in)
       break;
     }
     uint32_t var = std::abs(parsed_lit) - 1;
-    forall_vars.push_back(var);
+    solver->add_forall_var(var);
     forall_vars_added++;
   }
   in.skipLine();
@@ -473,7 +472,7 @@ bool DimacsParser<C, S>::parseExistsVars(C& in)
       break;
     }
     uint32_t var = std::abs(parsed_lit) - 1;
-    exists_vars.push_back(var);
+    solver->add_exists_var(var);
     exists_vars_added++;
   }
   in.skipLine();

@@ -55,13 +55,19 @@ void SkolemFC::SklFC::new_vars(uint32_t num) { nvars += num; }
 bool SkolemFC::SklFC::add_clause(const std::vector<Lit>& cl)
 {
   return skolemfc->p->add_clause(cl);
-  // TODO this goes nowhere
 }
 
-bool SkolemFC::SklFC::set_forall_vars(const std::vector<uint32_t>& vars)
+bool SkolemFC::SklFC::add_exists_var(uint32_t var)
 {
-  // TODO fix variables here
+  return skolemfc->p->add_exists_var(var);
 }
+
+bool SkolemFC::SklFC::add_forall_var(uint32_t var)
+{
+  return skolemfc->p->add_forall_var(var);
+}
+
+void SkolemFC::SklFC::check_ready() { skolemfc->p->check_ready(); }
 
 const char* SkolemFC::SklFC::get_version_info()
 {
