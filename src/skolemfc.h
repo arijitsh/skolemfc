@@ -50,8 +50,8 @@ struct SklFCPrivate;
 struct SklFC
 {
  public:
-  SklFC(const double epsilon = 0.5,
-        const double delta = 0.5,
+  SklFC(const double epsilon = 0.8,
+        const double delta = 0.8,
         const uint32_t seed = 1,
         const uint32_t verbosity = 0);
   ~SklFC();
@@ -86,9 +86,13 @@ struct SklFC
  private:
   SklFCPrivate* skolemfc = NULL;
   uint64_t iteration = 0;
+  uint64_t count_g_formula = 0;
+  uint64_t value_est0 = 0;
   double log_skolemcount = 0;
-  double sum_logcount;
   double thresh = 1;
+  double epsilon, delta;
+  double epsilon_f, delta_f;
+  double epsilon_s, delta_c, epsilon_c;
   uint64_t sample_num_est;
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);

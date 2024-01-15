@@ -71,7 +71,22 @@ bool SkolemFC::SklFC::add_forall_var(uint32_t var)
 
 void SkolemFC::SklFC::check_ready() { skolemfc->p->check_ready(); }
 
-void SkolemFC::SklFC::set_constants() {}
+void SkolemFC::SklFC::set_constants()
+{
+  epsilon = skolemfc->p->epsilon;
+  delta = skolemfc->p->delta;
+
+  cout << "c [sklfc] running with epsilon: " << epsilon
+       << " and delta: " << delta << endl;
+
+  epsilon_f = 0.6 * epsilon;
+  delta_f = 0.5 * delta;
+
+  thresh = 4.0 * log(2 / delta_f) * (1 + epsilon_f) / (epsilon_f * epsilon_f);
+  thresh *= (double)skolemfc->p->exists_vars.size();
+
+  cout << "c [sklfc] threshold (x |Y|) is set to: " << thresh << endl;
+}
 
 void SkolemFC::SklFC::get_est0()
 {
@@ -85,6 +100,14 @@ void SkolemFC::SklFC::get_est0()
   ApproxMC::SolCount c = appmc.count();
   uint64_t f_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
   cout << "c [sklfc] F formula has (projected) count: " << f_cnt << endl;
+  value_est0 = skolemfc->p->exists_vars.size();
+  uint64_t pow_n = pow(2, skolemfc->p->forall_vars.size());
+
+  if (pow_n > f_cnt)
+    value_est0 *= log(pow_n - f_cnt);
+  else
+    value_est0 = 0;
+  cout << "c [sklfc] Est0 = " << value_est0 << endl;
 }
 
 void SkolemFC::SklFC::get_g_count()
@@ -98,11 +121,12 @@ void SkolemFC::SklFC::get_g_count()
   }
   appmc_g.set_projection_set(skolemfc->p->forall_vars);
   ApproxMC::SolCount c = appmc_g.count();
-  uint64_t g_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
-  cout << "c [sklfc] G formula has (projected) count: " << g_cnt << endl;
+  count_g_formula = std::pow(2, c.hashCount) * c.cellSolCount;
+  cout << "c [sklfc] G formula has (projected) count: " << count_g_formula
+       << endl;
 }
 
-void SkolemFC::SklFC::get_sample_num_est() { sample_num_est = 100; }
+void SkolemFC::SklFC::get_sample_num_est() { sample_num_est = 400; }
 
 void SkolemFC::SklFC::unigen_callback(const vector<int>& solution, void*)
 {
@@ -135,7 +159,10 @@ void SkolemFC::SklFC::get_samples()
   unigen->sample(&c, sample_num_est);
 }
 
-double SkolemFC::SklFC::get_final_count() {}
+double SkolemFC::SklFC::get_final_count()
+{
+  return thresh * (double)count_g_formula / (double)iteration;
+}
 
 vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(int sample_num)
 {
@@ -158,6 +185,7 @@ vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(int sample_num)
 
 void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 {
+  assert(iteration < sample_num_est);
   vector<vector<Lit>> sampling_formula = create_formula_from_sample(iteration);
   ApproxMC::AppMC appmc;
   appmc.new_vars(skolemfc->p->nVars());
@@ -168,11 +196,15 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   ApproxMC::SolCount c = appmc.count();
   // TODO c.hashCount + 1 seems a bad hack
   double logcount_this_it = (c.hashCount + 1) * log2(c.cellSolCount);
+
   iteration++;
-  cout << "c [sklfc] logcount at iteration " << iteration << ": "
-       << logcount_this_it << " clauses in formula: " << sampling_formula.size()
-       << endl;
   log_skolemcount += logcount_this_it;
+
+  if (skolemfc->p->verbosity > 1)
+  {
+    cout << "c [sklfc] logcount at iteration " << iteration << ": "
+         << logcount_this_it << " log_skolemcount: " << log_skolemcount << endl;
+  }
 }
 
 uint64_t SkolemFC::SklFC::count()
@@ -183,7 +215,7 @@ uint64_t SkolemFC::SklFC::count()
 
   get_samples();
 
-  while (sum_logcount < thresh)
+  while (log_skolemcount < thresh)
   {
     get_and_add_count_for_a_sample();
   }
