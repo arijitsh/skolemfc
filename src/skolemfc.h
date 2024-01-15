@@ -39,6 +39,7 @@
 #endif
 
 #include <approxmc/approxmc.h>
+#include <gmpxx.h>
 
 using CMSat::Lit;
 using std::vector;
@@ -71,13 +72,13 @@ struct SklFC
   void set_constants();
   void get_est0();
   void get_g_count();
-  void get_samples();
+  void get_samples(uint64_t samples_needed = 0);
   void get_and_add_count_for_a_sample();
-  double get_final_count();
+  mpf_class get_final_count();
   void get_sample_num_est();
   vector<vector<Lit>> create_formula_from_sample(int sample_num);
 
-  double count();
+  void count();
 
   // Set config
   void set_seed(uint32_t seed);
@@ -86,9 +87,9 @@ struct SklFC
  private:
   SklFCPrivate* skolemfc = NULL;
   uint64_t iteration = 0;
-  uint64_t count_g_formula = 0;
+  ApproxMC::SolCount count_g_formula;
   uint64_t value_est0 = 0;
-  double log_skolemcount = 0;
+  mpf_class log_skolemcount = 0;
   double thresh = 1;
   double epsilon, delta;
   double start_time_skolemfc, start_time_this;

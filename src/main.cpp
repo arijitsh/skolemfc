@@ -319,9 +319,7 @@ int main(int argc, char** argv)
   readInAFile(inp);
 
   skolemfc->check_ready();
-  double logcount = skolemfc->count();
-
-  cout << "s fc 2 ** " << logcount << endl;
+  skolemfc->count();
 
   cout << "c [sklfc] finished T: " << std::setprecision(2) << std::fixed
        << (cpuTime() - starTime) << endl;
