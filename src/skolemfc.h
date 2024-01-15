@@ -38,6 +38,10 @@
 #include <cryptominisat5/cryptominisat.h>
 #endif
 
+#include <approxmc/approxmc.h>
+
+using std::vector;
+
 namespace SkolemFC {
 
 struct SklFCPrivate;
@@ -62,6 +66,15 @@ struct SklFC
   bool add_exists_var(uint32_t var);
 
   void check_ready();
+
+  void set_constants();
+  void get_est0();
+  void get_g_count();
+  void get_samples();
+  void get_and_add_count_for_a_sample();
+  double get_final_count();
+  void get_sample_num_est();
+
   uint64_t count();
 
   // Set config
@@ -70,6 +83,12 @@ struct SklFC
 
  private:
   SklFCPrivate* skolemfc = NULL;
+  double log_skolemcount;
+  double sum_logcount;
+  double thresh;
+  uint64_t sample_num_est;
+  ApproxMC::AppMC appmc_g;
+  void unigen_callback(const vector<int>& solution, void*);
 };
 
 }  // namespace SkolemFC

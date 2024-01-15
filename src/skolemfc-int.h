@@ -109,7 +109,8 @@ struct SklFCInt
   uint32_t n_cls_declared = 0;
   double epsilon;
   double delta;
-  uint64_t thresh = 0;  // intentionally wrong
+  double thresh = 0;
+  double sum_logcount = 0;
   mpq_t sampl_prob;
   uint32_t sampl_prob_expbit = 0;
   uint32_t sampl_prob_expbit_before_approx =
@@ -124,6 +125,7 @@ struct SklFCInt
   vector<uint32_t> exists_vars;
   vector<uint32_t> forall_vars;
   std::vector<Lit> new_clause, diff_clause;
+  uint64_t logcount = 0;
 };
 
 }  // namespace SkolemFCInt

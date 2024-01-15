@@ -26,7 +26,7 @@
 
 #include "skolemfc.h"
 
-#include <approxmc/approxmc.h>
+#include <unigen/unigen.h>
 
 #include "GitSHA1.h"
 #include "skolemfc-int.h"
@@ -71,10 +71,10 @@ bool SkolemFC::SklFC::add_forall_var(uint32_t var)
 
 void SkolemFC::SklFC::check_ready() { skolemfc->p->check_ready(); }
 
-uint64_t SkolemFC::SklFC::count()
-{
-  uint64_t logcount = 0;
+void SkolemFC::SklFC::set_constants() {}
 
+void SkolemFC::SklFC::get_est0()
+{
   ApproxMC::AppMC appmc;
   appmc.new_vars(skolemfc->p->nVars());
   for (auto& clause : skolemfc->p->clauses)
@@ -85,21 +85,72 @@ uint64_t SkolemFC::SklFC::count()
   ApproxMC::SolCount c = appmc.count();
   uint64_t f_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
   cout << "c [sklfc] F formula has (projected) count: " << f_cnt << endl;
+}
 
+void SkolemFC::SklFC::get_g_count()
+{
   skolemfc->p->create_g_formula();
 
-  ApproxMC::AppMC appmc_g;
   appmc_g.new_vars(skolemfc->p->nGVars());
   for (auto& clause : skolemfc->p->g_formula_clauses)
   {
     appmc_g.add_clause(clause);
   }
   appmc_g.set_projection_set(skolemfc->p->forall_vars);
-  c = appmc_g.count();
+  ApproxMC::SolCount c = appmc_g.count();
   uint64_t g_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
   cout << "c [sklfc] G formula has (projected) count: " << g_cnt << endl;
+}
 
-  return logcount;
+void SkolemFC::SklFC::get_sample_num_est() { sample_num_est = 100; }
+
+void SkolemFC::SklFC::unigen_callback(const vector<int>& solution, void*)
+{
+  for (uint32_t i = 0; i < solution.size(); i++)
+  {
+    cout << solution[i] << " ";
+  }
+  cout << "0" << endl;
+}
+
+void SkolemFC::SklFC::get_samples()
+{
+  get_g_count();
+  get_sample_num_est();
+  auto ug_appmc = new ApproxMC::AppMC;
+  auto unigen = new UniGen::UniG(ug_appmc);
+  ug_appmc->set_verbosity(0);
+  unigen->set_callback(unigen_callback, NULL);
+  appmc_g.new_vars(skolemfc->p->nGVars());
+  for (auto& clause : skolemfc->p->g_formula_clauses)
+  {
+    appmc_g.add_clause(clause);
+  }
+  appmc_g.set_projection_set(skolemfc->p->forall_vars);
+  ApproxMC::SolCount c = appmc_g.count();
+  unigen->sample(&c, sample_num_est);
+}
+
+double SkolemFC::SklFC::get_final_count() {}
+
+void SkolemFC::SklFC::get_and_add_count_for_a_sample() {}
+
+uint64_t SkolemFC::SklFC::count()
+{
+  set_constants();
+
+  get_est0();
+
+  get_samples();
+
+  while (sum_logcount < thresh)
+  {
+    get_and_add_count_for_a_sample();
+  }
+
+  log_skolemcount = get_final_count();
+
+  return log_skolemcount;
 }
 
 const char* SkolemFC::SklFC::get_version_info()
