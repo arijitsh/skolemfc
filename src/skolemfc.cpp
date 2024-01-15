@@ -119,19 +119,24 @@ void SkolemFC::SklFC::get_samples()
   get_sample_num_est();
   auto ug_appmc = new ApproxMC::AppMC;
   auto unigen = new UniGen::UniG(ug_appmc);
-  ug_appmc->set_verbosity(0);
+  ug_appmc->set_verbosity(3);
+//   unigen->set_callback(unigen_callback,NULL);
   unigen->set_callback([this](const vector<int>& solution,
-                              void*) { this->unigen_callback(solution, NULL); },
+                              void*) {
+    this->unigen_callback(solution, NULL); },
                        NULL);
 
-  appmc_g.new_vars(skolemfc->p->nGVars());
+  ug_appmc->new_vars(skolemfc->p->nGVars());
   for (auto& clause : skolemfc->p->g_formula_clauses)
   {
-    appmc_g.add_clause(clause);
+    ug_appmc->add_clause(clause);
   }
-  appmc_g.set_projection_set(skolemfc->p->forall_vars);
-  ApproxMC::SolCount c = appmc_g.count();
-  unigen->sample(&c, sample_num_est);
+  ug_appmc->set_projection_set(skolemfc->p->forall_vars);
+  ApproxMC::SolCount c = ug_appmc->count();
+    uint64_t g_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
+  cout << "c [sklfc] G formula has (projected) count before sampling: " << g_cnt << " num vars: " << skolemfc->p->nGVars()  <<endl;
+  unigen->set_full_sampling_vars(skolemfc->p->forall_vars);
+  unigen->sample(&c, 10);
 }
 
 double SkolemFC::SklFC::get_final_count() {}
