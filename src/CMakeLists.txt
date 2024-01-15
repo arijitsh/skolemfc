@@ -25,6 +25,7 @@ include_directories(${Boost_INCLUDE_DIRS})
 include_directories(${GMP_INCLUDE_DIRS})
 include_directories(${CRYPTOMINISAT5_INCLUDE_DIRS})
 include_directories(${APPROXMC_INCLUDE_DIRS})
+include_directories(${UNIGEN_INCLUDE_DIRS})
 
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/GitSHA1.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/GitSHA1.cpp" @ONLY)
@@ -46,6 +47,7 @@ add_executable (skolemfc-test-bin
 target_link_libraries (skolemfc
     LINK_PUBLIC ${CRYPTOMINISAT5_LIBRARIES}
     LINK_PUBLIC ${APPROXMC_LIBRARIES}
+    LINK_PUBLIC ${UNIGEN_LIBRARIES}
     ${GMPXX_LIB}
     ${GMP_LIB}
     ${ZLIB_LIBRARY}

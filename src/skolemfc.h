@@ -88,7 +88,7 @@ struct SklFC
   double thresh;
   uint64_t sample_num_est;
   ApproxMC::AppMC appmc_g;
-  void unigen_callback(const vector<int>& solution, void*);
+  void unigen_callback(const std::vector<int>& solution, void*);
 };
 
 }  // namespace SkolemFC

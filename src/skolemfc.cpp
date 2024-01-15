@@ -120,7 +120,10 @@ void SkolemFC::SklFC::get_samples()
   auto ug_appmc = new ApproxMC::AppMC;
   auto unigen = new UniGen::UniG(ug_appmc);
   ug_appmc->set_verbosity(0);
-  unigen->set_callback(unigen_callback, NULL);
+  unigen->set_callback([this](const vector<int>& solution,
+                              void*) { this->unigen_callback(solution, NULL); },
+                       NULL);
+
   appmc_g.new_vars(skolemfc->p->nGVars());
   for (auto& clause : skolemfc->p->g_formula_clauses)
   {
