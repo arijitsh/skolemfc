@@ -40,6 +40,7 @@
 
 #include <approxmc/approxmc.h>
 
+using CMSat::Lit;
 using std::vector;
 
 namespace SkolemFC {
@@ -74,6 +75,7 @@ struct SklFC
   void get_and_add_count_for_a_sample();
   double get_final_count();
   void get_sample_num_est();
+  vector<vector<Lit>> create_formula_from_sample(int sample_num);
 
   uint64_t count();
 
@@ -83,12 +85,14 @@ struct SklFC
 
  private:
   SklFCPrivate* skolemfc = NULL;
-  double log_skolemcount;
+  uint64_t iteration = 0;
+  double log_skolemcount = 0;
   double sum_logcount;
-  double thresh;
+  double thresh = 1;
   uint64_t sample_num_est;
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);
+  vector<vector<int>> samples_from_unisamp;
 };
 
 }  // namespace SkolemFC

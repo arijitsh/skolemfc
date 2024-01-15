@@ -108,9 +108,8 @@ void SkolemFC::SklFC::unigen_callback(const vector<int>& solution, void*)
 {
   for (uint32_t i = 0; i < solution.size(); i++)
   {
-    cout << solution[i] << " ";
+    samples_from_unisamp.push_back(solution);
   }
-  cout << "0" << endl;
 }
 
 void SkolemFC::SklFC::get_samples()
@@ -119,11 +118,10 @@ void SkolemFC::SklFC::get_samples()
   get_sample_num_est();
   auto ug_appmc = new ApproxMC::AppMC;
   auto unigen = new UniGen::UniG(ug_appmc);
-  ug_appmc->set_verbosity(3);
-//   unigen->set_callback(unigen_callback,NULL);
+  ug_appmc->set_verbosity(1);
+  //   unigen->set_callback(unigen_callback,NULL);
   unigen->set_callback([this](const vector<int>& solution,
-                              void*) {
-    this->unigen_callback(solution, NULL); },
+                              void*) { this->unigen_callback(solution, NULL); },
                        NULL);
 
   ug_appmc->new_vars(skolemfc->p->nGVars());
@@ -133,15 +131,49 @@ void SkolemFC::SklFC::get_samples()
   }
   ug_appmc->set_projection_set(skolemfc->p->forall_vars);
   ApproxMC::SolCount c = ug_appmc->count();
-    uint64_t g_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
-  cout << "c [sklfc] G formula has (projected) count before sampling: " << g_cnt << " num vars: " << skolemfc->p->nGVars()  <<endl;
   unigen->set_full_sampling_vars(skolemfc->p->forall_vars);
-  unigen->sample(&c, 10);
+  unigen->sample(&c, sample_num_est);
 }
 
 double SkolemFC::SklFC::get_final_count() {}
 
-void SkolemFC::SklFC::get_and_add_count_for_a_sample() {}
+vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(int sample_num)
+{
+  // TODO if already made samples are not enough, then create a new set
+  vector<vector<Lit>> formula = skolemfc->p->clauses;
+  vector<Lit> new_clause;
+  for (auto int_lit : samples_from_unisamp[sample_num])
+  {
+    bool isNegated = int_lit < 0;
+    uint32_t varIndex =
+        isNegated ? -int_lit - 1 : int_lit - 1;  // Convert to 0-based index
+    Lit literal = isNegated ? ~Lit(varIndex, false) : Lit(varIndex, false);
+    new_clause.clear();
+    new_clause.push_back(literal);
+    formula.push_back(new_clause);
+  }
+  if (skolemfc->p->verbosity > 2) skolemfc->p->print_formula(formula);
+  return formula;
+}
+
+void SkolemFC::SklFC::get_and_add_count_for_a_sample()
+{
+  vector<vector<Lit>> sampling_formula = create_formula_from_sample(iteration);
+  ApproxMC::AppMC appmc;
+  appmc.new_vars(skolemfc->p->nVars());
+  for (auto& clause : sampling_formula)
+  {
+    appmc.add_clause(clause);
+  }
+  ApproxMC::SolCount c = appmc.count();
+  // TODO c.hashCount + 1 seems a bad hack
+  double logcount_this_it = (c.hashCount + 1) * log2(c.cellSolCount);
+  iteration++;
+  cout << "c [sklfc] logcount at iteration " << iteration << ": "
+       << logcount_this_it << " clauses in formula: " << sampling_formula.size()
+       << endl;
+  log_skolemcount += logcount_this_it;
+}
 
 uint64_t SkolemFC::SklFC::count()
 {
