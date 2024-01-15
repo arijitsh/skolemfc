@@ -319,7 +319,7 @@ int main(int argc, char** argv)
   readInAFile(inp);
 
   skolemfc->check_ready();
-  uint64_t logcount = skolemfc->count();
+  double logcount = skolemfc->count();
 
   cout << "s fc 2 ** " << logcount << endl;
 

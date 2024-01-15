@@ -77,7 +77,7 @@ struct SklFC
   void get_sample_num_est();
   vector<vector<Lit>> create_formula_from_sample(int sample_num);
 
-  uint64_t count();
+  double count();
 
   // Set config
   void set_seed(uint32_t seed);
@@ -91,9 +91,11 @@ struct SklFC
   double log_skolemcount = 0;
   double thresh = 1;
   double epsilon, delta;
+  double start_time_skolemfc, start_time_this;
   double epsilon_f, delta_f;
   double epsilon_s, delta_c, epsilon_c;
   uint64_t sample_num_est;
+  bool okay = true;
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);
   vector<vector<int>> samples_from_unisamp;

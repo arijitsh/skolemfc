@@ -28,10 +28,14 @@
 
 #include <unigen/unigen.h>
 
+#include <iomanip>
+
 #include "GitSHA1.h"
 #include "skolemfc-int.h"
+#include "time_mem.h"
 
 using namespace SkolemFCInt;
+using CMSat::lbool;
 using CMSat::Lit;
 
 struct SkolemFC::SklFCPrivate
@@ -73,6 +77,8 @@ void SkolemFC::SklFC::check_ready() { skolemfc->p->check_ready(); }
 
 void SkolemFC::SklFC::set_constants()
 {
+  start_time_skolemfc = cpuTime();
+
   epsilon = skolemfc->p->epsilon;
   delta = skolemfc->p->delta;
 
@@ -97,9 +103,20 @@ void SkolemFC::SklFC::get_est0()
     appmc.add_clause(clause);
   }
   appmc.set_projection_set(skolemfc->p->forall_vars);
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << "] counting for F formula"
+       << endl;
   ApproxMC::SolCount c = appmc.count();
   uint64_t f_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
-  cout << "c [sklfc] F formula has (projected) count: " << f_cnt << endl;
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "]  F formula has (projected) count: " << f_cnt << endl;
+
+  if (f_cnt == 0)
+  {
+    cout << "c [sklfc] F is UNSAT. Est1 = 0" << endl;
+    okay = false;
+  }
   value_est0 = skolemfc->p->exists_vars.size();
   uint64_t pow_n = pow(2, skolemfc->p->forall_vars.size());
 
@@ -107,6 +124,8 @@ void SkolemFC::SklFC::get_est0()
     value_est0 *= log(pow_n - f_cnt);
   else
     value_est0 = 0;
+
+  log_skolemcount = value_est0;
   cout << "c [sklfc] Est0 = " << value_est0 << endl;
 }
 
@@ -120,13 +139,68 @@ void SkolemFC::SklFC::get_g_count()
     appmc_g.add_clause(clause);
   }
   appmc_g.set_projection_set(skolemfc->p->forall_vars);
+
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << "] counting for G formula"
+       << endl;
+
   ApproxMC::SolCount c = appmc_g.count();
   count_g_formula = std::pow(2, c.hashCount) * c.cellSolCount;
-  cout << "c [sklfc] G formula has (projected) count: " << count_g_formula
-       << endl;
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "] G formula has (projected) count: " << count_g_formula << endl;
+  if (count_g_formula == 0)
+  {
+    cout << "c [sklfc] G is UNSAT. Est1 = 0" << endl;
+    okay = false;
+  }
 }
 
-void SkolemFC::SklFC::get_sample_num_est() { sample_num_est = 400; }
+void SkolemFC::SklFC::get_sample_num_est()
+{
+  CMSat::SATSolver cms;
+  ApproxMC::AppMC apmc;
+  vector<Lit> new_clause;
+  cms.new_vars(skolemfc->p->nGVars());
+  apmc.new_vars(skolemfc->p->nVars());
+  for (auto& clause : skolemfc->p->g_formula_clauses)
+  {
+    cms.add_clause(clause);
+  }
+  auto res = cms.solve();
+  if (res == CMSat::l_False)
+  {
+    cout << "c Unsat G" << endl;
+  }
+
+  for (auto& clause : skolemfc->p->clauses)
+  {
+    apmc.add_clause(clause);
+  }
+  vector<lbool> model = cms.get_model();
+  for (auto var : skolemfc->p->forall_vars)
+  {
+    new_clause.clear();
+    if (model[var] == CMSat::l_True)
+    {
+      new_clause.push_back(Lit(var, false));
+    }
+    else
+    {
+      assert(model[var] == CMSat::l_False);
+      new_clause.push_back(Lit(var, true));
+    }
+    apmc.add_clause(new_clause);
+  }
+
+  ApproxMC::SolCount c = apmc.count();
+  uint64_t f_cnt = std::pow(2, c.hashCount) * c.cellSolCount;
+  cout << "c [sklfc] Estimated count from each it: " << f_cnt << endl;
+  sample_num_est = 2 * thresh / (c.hashCount + log2(c.cellSolCount));
+  cout << "c [sklfc]  [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "] approximated number of iterations: " << sample_num_est << endl;
+}
 
 void SkolemFC::SklFC::unigen_callback(const vector<int>& solution, void*)
 {
@@ -140,9 +214,14 @@ void SkolemFC::SklFC::get_samples()
 {
   get_g_count();
   get_sample_num_est();
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << "] starting to get "
+       << sample_num_est << " samples" << endl;
+
   auto ug_appmc = new ApproxMC::AppMC;
   auto unigen = new UniGen::UniG(ug_appmc);
-  ug_appmc->set_verbosity(1);
+  ug_appmc->set_verbosity(0);
+  unigen->set_verbosity(0);
   //   unigen->set_callback(unigen_callback,NULL);
   unigen->set_callback([this](const vector<int>& solution,
                               void*) { this->unigen_callback(solution, NULL); },
@@ -157,11 +236,14 @@ void SkolemFC::SklFC::get_samples()
   ApproxMC::SolCount c = ug_appmc->count();
   unigen->set_full_sampling_vars(skolemfc->p->forall_vars);
   unigen->sample(&c, sample_num_est);
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << "] generated " << sample_num_est
+       << " samples" << endl;
 }
 
 double SkolemFC::SklFC::get_final_count()
 {
-  return thresh * (double)count_g_formula / (double)iteration;
+  return (thresh / (double)iteration) * (double)count_g_formula;
 }
 
 vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(int sample_num)
@@ -195,7 +277,7 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   }
   ApproxMC::SolCount c = appmc.count();
   // TODO c.hashCount + 1 seems a bad hack
-  double logcount_this_it = (c.hashCount + 1) * log2(c.cellSolCount);
+  double logcount_this_it = c.hashCount + log2(c.cellSolCount);
 
   iteration++;
   log_skolemcount += logcount_this_it;
@@ -207,20 +289,20 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   }
 }
 
-uint64_t SkolemFC::SklFC::count()
+double SkolemFC::SklFC::count()
 {
   set_constants();
 
   get_est0();
 
-  get_samples();
+  if (okay) get_samples();
 
-  while (log_skolemcount < thresh)
+  while ((log_skolemcount <= thresh) && okay)
   {
     get_and_add_count_for_a_sample();
   }
 
-  log_skolemcount = get_final_count();
+  if (okay) log_skolemcount = (double)value_est0 + get_final_count();
 
   return log_skolemcount;
 }
