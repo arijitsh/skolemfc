@@ -211,7 +211,7 @@ void SkolemFC::SklFC::get_sample_num_est()
        << (cpuTime() - start_time_skolemfc)
        << "] Estimated count from each it: " << c.cellSolCount << " * 2 ** "
        << c.hashCount << endl;
-  sample_num_est = 1.1 * thresh / (c.hashCount + log2(c.cellSolCount));
+  sample_num_est = 1.5 * thresh / (c.hashCount + log2(c.cellSolCount));
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] approximated number of iterations: " << sample_num_est << endl;
@@ -276,12 +276,13 @@ mpf_class SkolemFC::SklFC::get_final_count()
   return (thresh / (double)iteration) * (double)count_g_formula.cellSolCount;
 }
 
-vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(int sample_num)
+vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(
+    vector<vector<int>> samples, int sample_num)
 {
   // TODO if already made samples are not enough, then create a new set
   vector<vector<Lit>> formula = skolemfc->p->clauses;
   vector<Lit> new_clause;
-  for (auto int_lit : samples_from_unisamp[sample_num])
+  for (auto int_lit : samples[sample_num])
   {
     bool isNegated = int_lit < 0;
     uint32_t varIndex =
@@ -295,6 +296,67 @@ vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(int sample_num)
   return formula;
 }
 
+void SkolemFC::SklFC::get_and_add_count_onethred(vector<vector<int>> samples)
+{
+  cout << "This thread has samples: " << samples.size() << endl;
+  for (uint it = 0; it < samples.size(); it++)
+  {
+    vector<vector<Lit>> sampling_formula =
+        create_formula_from_sample(samples, it);
+    ApproxMC::AppMC appmc;
+    appmc.new_vars(skolemfc->p->nVars());
+    for (auto& clause : sampling_formula)
+    {
+      appmc.add_clause(clause);
+    }
+    ApproxMC::SolCount c = appmc.count();
+    double logcount_this_it = (double)c.hashCount + log2(c.cellSolCount);
+    {
+      std::lock_guard<std::mutex> lock(iter_mutex);
+      if (log_skolemcount <= thresh)
+      {
+        iteration++;
+        log_skolemcount += logcount_this_it;
+      }
+    }
+    if (skolemfc->p->verbosity > 1 && iteration % 10 == 0)
+    {
+      std::lock_guard<std::mutex> lock(cout_mutex);
+
+      cout << "c [sklfc] logcount at iteration " << iteration << ": "
+           << logcount_this_it << " log_skolemcount: " << log_skolemcount
+           << endl;
+    }
+  }
+}
+void SkolemFC::SklFC::get_and_add_count_multithred()
+{
+  vector<vector<vector<int>>> partitioned_solutions(numthreads);
+  size_t partition_size =
+      std::ceil(samples_from_unisamp.size() / static_cast<double>(numthreads));
+
+  auto it = samples_from_unisamp.begin();
+  for (uint i = 0; i < numthreads; ++i)
+  {
+    auto end = ((i + 1) * partition_size < samples_from_unisamp.size())
+                   ? it + partition_size
+                   : samples_from_unisamp.end();
+    partitioned_solutions[i] = vector<vector<int>>(it, end);
+    it = end;
+  }
+  for (uint i = 0; i < numthreads; ++i)
+  {
+    {
+      threads.push_back(std::thread(
+          &SklFC::get_and_add_count_onethred, this, partitioned_solutions[i]));
+    }
+    for (auto& thread : threads)
+    {
+      thread.join();
+    }
+  }
+}
+
 void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 {
   if (iteration >= sample_num_est)
@@ -305,7 +367,8 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
       get_samples(sample_num_est * 0.25);
     sample_num_est += sample_num_est * 0.25;
   }
-  vector<vector<Lit>> sampling_formula = create_formula_from_sample(iteration);
+  vector<vector<Lit>> sampling_formula =
+      create_formula_from_sample(samples_from_unisamp, iteration);
   ApproxMC::AppMC appmc;
   appmc.new_vars(skolemfc->p->nVars());
   for (auto& clause : sampling_formula)
@@ -319,7 +382,7 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   iteration++;
   log_skolemcount += logcount_this_it;
 
-  if (skolemfc->p->verbosity > 1)
+  if (skolemfc->p->verbosity > 1 && iteration % 10 == 0)
   {
     cout << "c [sklfc] logcount at iteration " << iteration << ": "
          << logcount_this_it << " log_skolemcount: " << log_skolemcount << endl;
@@ -337,14 +400,19 @@ void SkolemFC::SklFC::count()
   if (okay) get_sample_num_est();
 
   if (numthreads > 1)
-    get_samples_multithread(sample_num_est);
-  else
-    get_samples(sample_num_est);
-  while ((log_skolemcount <= thresh) && okay)
   {
-    get_and_add_count_for_a_sample();
+    if (okay) get_samples_multithread(sample_num_est);
+    get_and_add_count_multithred();
   }
+  else
+  {
+    get_samples(sample_num_est);
 
+    while ((log_skolemcount <= thresh) && okay)
+    {
+      get_and_add_count_for_a_sample();
+    }
+  }
   mpz_pow_ui(
       result.get_mpz_t(), mpz_class(2).get_mpz_t(), count_g_formula.hashCount);
   result_f = result;

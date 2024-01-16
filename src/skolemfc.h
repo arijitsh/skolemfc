@@ -80,9 +80,11 @@ struct SklFC
   void get_samples_multithread(uint64_t samples_needed = 0);
   void get_and_add_count_for_a_sample();
   void get_and_add_count_multithred();
+  void get_and_add_count_onethred(vector<vector<int>> samples);
   mpf_class get_final_count();
   void get_sample_num_est();
-  vector<vector<Lit>> create_formula_from_sample(int sample_num);
+  vector<vector<Lit>> create_formula_from_sample(vector<vector<int>> samples,
+                                                 int sample_num);
 
   void count();
 
@@ -93,7 +95,7 @@ struct SklFC
  private:
   SklFCPrivate* skolemfc = NULL;
   std::vector<std::thread> threads;
-  std::mutex cout_mutex, vec_mutex;
+  std::mutex cout_mutex, vec_mutex, iter_mutex;
   uint64_t iteration = 0;
   ApproxMC::SolCount count_g_formula;
   uint64_t value_est0 = 0;
