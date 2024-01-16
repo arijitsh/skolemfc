@@ -27,6 +27,7 @@
 #include "skolemfc.h"
 
 #include <gmpxx.h>
+#include <threads.h>
 #include <unigen/unigen.h>
 
 #include <iomanip>
@@ -38,6 +39,7 @@
 using namespace SkolemFCInt;
 using CMSat::lbool;
 using CMSat::Lit;
+using std::thread;
 
 struct SkolemFC::SklFCPrivate
 {
@@ -160,6 +162,8 @@ void SkolemFC::SklFC::get_g_count()
 
 void SkolemFC::SklFC::get_sample_num_est()
 {
+  get_g_count();
+
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] estimating number of samples needed" << endl;
@@ -217,28 +221,37 @@ void SkolemFC::SklFC::unigen_callback(const vector<int>& solution, void*)
 {
   for (uint32_t i = 0; i < solution.size(); i++)
   {
+    std::lock_guard<std::mutex> lock(vec_mutex);
     samples_from_unisamp.push_back(solution);
   }
 }
 
-void SkolemFC::SklFC::get_samples(uint64_t samples_needed)
+void SkolemFC::SklFC::get_samples_multithread(uint64_t samples_needed)
 {
-  if (samples_needed == 0)
+  for (uint i = 0; i < numthreads; ++i)
   {
-    get_g_count();
-    get_sample_num_est();
-    samples_needed = sample_num_est;
+    threads.push_back(
+        std::thread(&SklFC::get_samples, this, samples_needed / numthreads, i));
   }
+  for (auto& thread : threads)
+  {
+    thread.join();
+  }
+}
 
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc) << "] starting to get "
-       << samples_needed << " samples" << endl;
-
+void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int seed)
+{
+  {
+    std::lock_guard<std::mutex> lock(cout_mutex);
+    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+         << (cpuTime() - start_time_skolemfc) << "] starting to get "
+         << samples_needed << " samples" << endl;
+  }
   auto ug_appmc = new ApproxMC::AppMC;
   auto unigen = new UniGen::UniG(ug_appmc);
   ug_appmc->set_verbosity(0);
   unigen->set_verbosity(0);
-  ug_appmc->set_seed(iteration);
+  ug_appmc->set_seed(iteration * seed);
   //   unigen->set_callback(unigen_callback,NULL);
   unigen->set_callback([this](const vector<int>& solution,
                               void*) { this->unigen_callback(solution, NULL); },
@@ -286,7 +299,10 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 {
   if (iteration >= sample_num_est)
   {
-    get_samples(sample_num_est * 0.25);
+    if (numthreads > 1)
+      get_samples_multithread(sample_num_est * 0.25);
+    else
+      get_samples(sample_num_est * 0.25);
     sample_num_est += sample_num_est * 0.25;
   }
   vector<vector<Lit>> sampling_formula = create_formula_from_sample(iteration);
@@ -318,8 +334,12 @@ void SkolemFC::SklFC::count()
 
   get_est0();
 
-  if (okay) get_samples();
+  if (okay) get_sample_num_est();
 
+  if (numthreads > 1)
+    get_samples_multithread(sample_num_est);
+  else
+    get_samples(sample_num_est);
   while ((log_skolemcount <= thresh) && okay)
   {
     get_and_add_count_for_a_sample();

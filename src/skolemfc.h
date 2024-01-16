@@ -41,6 +41,9 @@
 #include <approxmc/approxmc.h>
 #include <gmpxx.h>
 
+#include <mutex>
+#include <thread>
+
 using CMSat::Lit;
 using std::vector;
 
@@ -68,12 +71,15 @@ struct SklFC
   bool add_exists_var(uint32_t var);
 
   void check_ready();
+  void set_num_threads(int nthreads) { numthreads = nthreads; }
 
   void set_constants();
   void get_est0();
   void get_g_count();
-  void get_samples(uint64_t samples_needed = 0);
+  void get_samples(uint64_t samples_needed = 0, int seed = 1);
+  void get_samples_multithread(uint64_t samples_needed = 0);
   void get_and_add_count_for_a_sample();
+  void get_and_add_count_multithred();
   mpf_class get_final_count();
   void get_sample_num_est();
   vector<vector<Lit>> create_formula_from_sample(int sample_num);
@@ -86,11 +92,14 @@ struct SklFC
 
  private:
   SklFCPrivate* skolemfc = NULL;
+  std::vector<std::thread> threads;
+  std::mutex cout_mutex, vec_mutex;
   uint64_t iteration = 0;
   ApproxMC::SolCount count_g_formula;
   uint64_t value_est0 = 0;
   mpf_class log_skolemcount = 0;
   double thresh = 1;
+  uint numthreads;
   double epsilon, delta;
   double start_time_skolemfc, start_time_this;
   double epsilon_f, delta_f;

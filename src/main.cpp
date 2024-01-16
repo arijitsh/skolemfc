@@ -65,6 +65,7 @@ po::positional_options_description p;
 double startTime;
 uint32_t verbosity = 1;
 uint32_t seed = 0;
+uint32_t nthreads = 8;
 double epsilon = 0.8;
 double delta = 0.8;
 string logfilename;
@@ -98,7 +99,9 @@ void add_skolemfc_options()
       "input", po::value<string>(), "file to read")(
       "verb,v", po::value(&verbosity)->default_value(1), "verbosity")(
       "seed,s", po::value(&seed)->default_value(seed), "Seed")(
-      "version", "Print version info")
+      "threads,j",
+      po::value(&nthreads)->default_value(nthreads),
+      "Number of threads to use")("version", "Print version info")
 
       ("epsilon,e",
        po::value(&epsilon)->default_value(epsilon, my_epsilon.str()),
@@ -319,6 +322,7 @@ int main(int argc, char** argv)
   readInAFile(inp);
 
   skolemfc->check_ready();
+  skolemfc->set_num_threads(nthreads);
   skolemfc->count();
 
   cout << "c [sklfc] finished T: " << std::setprecision(2) << std::fixed
