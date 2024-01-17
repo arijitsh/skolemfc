@@ -64,6 +64,7 @@ po::variables_map vm;
 po::positional_options_description p;
 double startTime;
 uint32_t verbosity = 1;
+bool noguarantee = false;
 uint32_t seed = 0;
 uint32_t nthreads = 8;
 double epsilon = 0.8;
@@ -98,9 +99,12 @@ void add_skolemfc_options()
   main_options.add_options()("help,h", "Prints help")(
       "input", po::value<string>(), "file to read")(
       "verb,v", po::value(&verbosity)->default_value(1), "verbosity")(
+      "noguarantee,n",
+      po::bool_switch(&noguarantee),
+      "Run SkolemFC with better performance, but no theoretical guarantee")(
       "seed,s", po::value(&seed)->default_value(seed), "Seed")(
       "threads,j",
-      po::value(&nthreads)->default_value(nthreads),
+      po::value(&nthreads)->default_value(1),
       "Number of threads to use")("version", "Print version info")
 
       ("epsilon,e",
@@ -323,6 +327,15 @@ int main(int argc, char** argv)
 
   skolemfc->check_ready();
   skolemfc->set_num_threads(nthreads);
+  if (noguarantee)
+  {
+    cout << "c use ApproxMC for couting S0";
+    skolemfc->use_appmc_for_esto();
+  }
+  else
+  {
+    cout << "c use GPMC for couting S0";
+  }
   skolemfc->count();
 
   cout << "c [sklfc] finished T: " << std::setprecision(2) << std::fixed

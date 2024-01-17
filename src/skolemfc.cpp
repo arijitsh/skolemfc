@@ -27,10 +27,12 @@
 #include "skolemfc.h"
 
 #include <gmpxx.h>
+#include <sys/wait.h>
 #include <threads.h>
 #include <unigen/unigen.h>
 
 #include <iomanip>
+#include <sstream>
 
 #include "GitSHA1.h"
 #include "skolemfc-int.h"
@@ -39,6 +41,8 @@
 using namespace SkolemFCInt;
 using CMSat::lbool;
 using CMSat::Lit;
+using std::string;
+using std::stringstream;
 using std::thread;
 
 struct SkolemFC::SklFCPrivate
@@ -97,7 +101,136 @@ void SkolemFC::SklFC::set_constants()
   cout << "c [sklfc] threshold (x |Y|) is set to: " << thresh << endl;
 }
 
+void SkolemFC::SklFC::get_est0_gpmc()
+{
+  std::stringstream ss;
+
+  // p cnf <number of variables> <number of clauses>
+  ss << "p cnf " << nVars() << " " << skolemfc->p->clauses.size() << endl;
+
+  // c p show <projection set variables>
+  ss << "c p show";
+  for (uint var : skolemfc->p->forall_vars)
+  {
+    ss << " " << var;
+  }
+  ss << endl;
+
+  // Clauses
+  for (const auto& clause : skolemfc->p->clauses)
+  {
+    for (const Lit& lit : clause)
+    {
+      ss << lit << " ";
+    }
+    ss << "0" << endl;  // End of a clause
+  }
+
+  string cnfContent = ss.str();
+
+  int toGPMC[2];    // Parent to child
+  int fromGPMC[2];  // Child to parent
+  pid_t pid;
+  mpz_t result;
+
+  if (pipe(toGPMC) == -1 || pipe(fromGPMC) == -1)
+  {
+    perror("pipe");
+    exit(EXIT_FAILURE);
+  }
+
+  pid = fork();
+  if (pid == -1)
+  {
+    perror("fork");
+    exit(EXIT_FAILURE);
+  }
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "] counting for F formula using GPMC" << endl;
+
+  if (pid == 0)
+  {                                 // Child process
+    dup2(toGPMC[0], STDIN_FILENO);  // Connect the read-end of toGPMC to stdin
+    dup2(fromGPMC[1],
+         STDOUT_FILENO);  // Connect the write-end of fromGPMC to stdout
+    close(toGPMC[0]);     // These are being used by the child now
+    close(toGPMC[1]);
+    close(fromGPMC[0]);
+    close(fromGPMC[1]);
+
+    // Execute gpmc
+    execlp("./gpmc", "./gpmc", "-mode=2", (char*)NULL);
+    perror("execlp");  // execlp only returns on error
+    exit(EXIT_FAILURE);
+  }
+  else
+  {                      // Parent process
+    close(toGPMC[0]);    // Parent does not read from toGPMC
+    close(fromGPMC[1]);  // Parent does not write to fromGPMC
+
+    // Write CNF to gpmc
+    write(toGPMC[1], cnfContent.c_str(), cnfContent.size());
+    close(toGPMC[1]);  // Send EOF to child
+
+    // Read output from gpmc
+    char buffer[128];
+    string gpmcOutput;
+    ssize_t count;
+    while ((count = read(fromGPMC[0], buffer, sizeof(buffer) - 1)) > 0)
+    {
+      buffer[count] = '\0';
+      gpmcOutput += buffer;
+    }
+    close(fromGPMC[0]);
+
+    // Wait for child process to finish
+    waitpid(pid, NULL, 0);
+
+    mpz_init(result);
+    // Parse gpmcOutput to find the required number and store it in result
+    std::istringstream iss(gpmcOutput);
+    string line;
+    mpz_class result;  // Use mpz_class instead of mpz_t
+    while (getline(iss, line))
+    {
+      if (line.rfind("c s exact arb int ", 0) == 0)
+      {  // Line starts with the pattern
+        string numberStr = line.substr(strlen("c s exact arb int "));
+        result.set_str(
+            numberStr,
+            10);  // Set the value of result, 10 is the base for decimal numbers
+        break;
+      }
+    }
+    if (result == 0)
+    {
+      cout << "c [sklfc] F is UNSAT. Est1 = 0" << endl;
+      okay = false;
+    }
+    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+         << (cpuTime() - start_time_skolemfc)
+         << "]  F formula has exact (projected) count: " << result << endl;
+    value_est0 = skolemfc->p->exists_vars.size();  // TODO missing 2^n
+    value_est0 *= result;
+  }
+  log_skolemcount = value_est0;  // TODO missing 2^n
+  cout << "c [sklfc] Approximate Est0 = " << log_skolemcount << endl;
+}
+
 void SkolemFC::SklFC::get_est0()
+{
+  if (use_appmc_for_est0)
+  {
+    get_est0_approxmc();
+  }
+  else
+  {
+    get_est0_gpmc();
+  }
+}
+
+void SkolemFC::SklFC::get_est0_approxmc()
 {
   ApproxMC::AppMC appmc;
   appmc.new_vars(skolemfc->p->nVars());
@@ -107,30 +240,32 @@ void SkolemFC::SklFC::get_est0()
   }
   appmc.set_projection_set(skolemfc->p->forall_vars);
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc) << "] counting for F formula"
+       << (cpuTime() - start_time_skolemfc)
+       << "] counting for F formula using ApproxMC. SkolemFC will not give any "
+          "guarantee on count!!"
        << endl;
   ApproxMC::SolCount c = appmc.count();
-
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "]  F formula has (projected) count: " << c.cellSolCount << " * 2 ** "
-       << c.hashCount << endl;
 
   if (c.cellSolCount == 0)
   {
     cout << "c [sklfc] F is UNSAT. Est1 = 0" << endl;
     okay = false;
   }
-  value_est0 = skolemfc->p->exists_vars.size();
+  value_est0 = 1;
+  mpz_class a_power_b;
+  mpz_pow_ui(
+      a_power_b.get_mpz_t(), mpz_class(2).get_mpz_t(), c.hashCount);  // a^b
+  a_power_b *= c.cellSolCount;
+  value_est0 *= a_power_b;
 
-  uint64_t pow_diff = skolemfc->p->forall_vars.size() - c.hashCount;
-  if ((pow(2, pow_diff) == c.cellSolCount))
-    value_est0 = 0;
-  else
-    value_est0 *= (c.hashCount + log2(pow(2, pow_diff) - c.cellSolCount));
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "]  F formula has approximated (projected) count: " << value_est0
+       << endl;
 
-  log_skolemcount = value_est0;
-  cout << "c [sklfc] Est0 = " << value_est0 << endl;
+  log_skolemcount =
+      value_est0 * skolemfc->p->exists_vars.size();  // TODO missing 2^n
+  cout << "c [sklfc] Approximate Est0 = " << log_skolemcount << endl;
 }
 
 void SkolemFC::SklFC::get_g_count()
@@ -417,7 +552,7 @@ void SkolemFC::SklFC::count()
       result.get_mpz_t(), mpz_class(2).get_mpz_t(), count_g_formula.hashCount);
   result_f = result;
   result_f *= get_final_count();
-  result_f += (double)value_est0;
+  result_f += value_est0;
 
   cout << "s fc 2 ** " << result_f << endl;
 }

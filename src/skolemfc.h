@@ -72,9 +72,11 @@ struct SklFC
 
   void check_ready();
   void set_num_threads(int nthreads) { numthreads = nthreads; }
-
+  void use_appmc_for_esto() { use_appmc_for_est0 = true; }
   void set_constants();
   void get_est0();
+  void get_est0_gpmc();
+  void get_est0_approxmc();
   void get_g_count();
   void get_samples(uint64_t samples_needed = 0, int seed = 1);
   void get_samples_multithread(uint64_t samples_needed = 0);
@@ -98,10 +100,11 @@ struct SklFC
   std::mutex cout_mutex, vec_mutex, iter_mutex;
   uint64_t iteration = 0;
   ApproxMC::SolCount count_g_formula;
-  uint64_t value_est0 = 0;
+  mpz_class value_est0 = 0;
   mpf_class log_skolemcount = 0;
   double thresh = 1;
   uint numthreads;
+  bool use_appmc_for_est0 = false;
   double epsilon, delta;
   double start_time_skolemfc, start_time_this;
   double epsilon_f, delta_f;
