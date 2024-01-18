@@ -105,25 +105,22 @@ void SkolemFC::SklFC::get_est0_gpmc()
 {
   std::stringstream ss;
 
-  // p cnf <number of variables> <number of clauses>
   ss << "p cnf " << nVars() << " " << skolemfc->p->clauses.size() << endl;
 
-  // c p show <projection set variables>
   ss << "c p show";
   for (uint var : skolemfc->p->forall_vars)
   {
-    ss << " " << var;
+    ss << " " << var + 1;
   }
-  ss << endl;
+  ss << " 0" << endl;
 
-  // Clauses
   for (const auto& clause : skolemfc->p->clauses)
   {
     for (const Lit& lit : clause)
     {
       ss << lit << " ";
     }
-    ss << "0" << endl;  // End of a clause
+    ss << "0" << endl;
   }
 
   string cnfContent = ss.str();

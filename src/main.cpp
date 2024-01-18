@@ -329,13 +329,9 @@ int main(int argc, char** argv)
   skolemfc->set_num_threads(nthreads);
   if (noguarantee)
   {
-    cout << "c use ApproxMC for couting S0";
     skolemfc->use_appmc_for_esto();
   }
-  else
-  {
-    cout << "c use GPMC for couting S0";
-  }
+
   skolemfc->count();
 
   cout << "c [sklfc] finished T: " << std::setprecision(2) << std::fixed
