@@ -208,11 +208,14 @@ void SkolemFC::SklFC::get_est0_gpmc()
     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
          << (cpuTime() - start_time_skolemfc)
          << "]  F formula has exact (projected) count: " << result << endl;
-    value_est0 = skolemfc->p->exists_vars.size();  // TODO missing 2^n
+    mpz_pow_ui(
+      value_est0.get_mpz_t(), mpz_class(2).get_mpz_t(), skolemfc->p->forall_vars.size());
+    value_est0 -= result;
+    value_est0 *= skolemfc->p->exists_vars.size();  // TODO missing 2^n
+
     value_est0 *= result;
   }
-  log_skolemcount = value_est0;  // TODO missing 2^n
-  cout << "c [sklfc] Approximate Est0 = " << log_skolemcount << endl;
+  cout << "c [sklfc] Est0 = " << value_est0 << endl;
 }
 
 void SkolemFC::SklFC::get_est0()
@@ -249,19 +252,21 @@ void SkolemFC::SklFC::get_est0_approxmc()
     okay = false;
   }
   value_est0 = 1;
-  mpz_class a_power_b;
+  mpz_class num_sol;
   mpz_pow_ui(
-      a_power_b.get_mpz_t(), mpz_class(2).get_mpz_t(), c.hashCount);  // a^b
-  a_power_b *= c.cellSolCount;
-  value_est0 *= a_power_b;
+      value_est0.get_mpz_t(), mpz_class(2).get_mpz_t(), skolemfc->p->forall_vars.size());
+  mpz_pow_ui(
+      num_sol.get_mpz_t(), mpz_class(2).get_mpz_t(), c.hashCount);  // a^b
+  num_sol *= c.cellSolCount;
+  value_est0 -= num_sol;
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
-       << "]  F formula has approximated (projected) count: " << value_est0
+       << "]  F formula has approximated (projected) count: " << num_sol
        << endl;
 
-  log_skolemcount =
-      value_est0 * skolemfc->p->exists_vars.size();  // TODO missing 2^n
+
+  value_est0 *= skolemfc->p->exists_vars.size();  // TODO missing 2^n
   cout << "c [sklfc] Approximate Est0 = " << log_skolemcount << endl;
 }
 
@@ -507,6 +512,7 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   {
     appmc.add_clause(clause);
   }
+  appmc.set_pivot_by_sqrt2(1);
   ApproxMC::SolCount c = appmc.count();
   // TODO c.hashCount + 1 seems a bad hack
   double logcount_this_it = (double)c.hashCount + log2(c.cellSolCount);

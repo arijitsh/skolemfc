@@ -1,4 +1,5 @@
 # Copyright (c) 2021, Mate Soos
+# Copyright (C) 2024, Arijit Shaw, Brendan Juba, and Kuldeep S. Meel.
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -314,8 +315,8 @@ if (NOT NOZLIB AND NOT (STATICCOMPILE AND WIN32))
     ENDIF (ZLIB_FOUND)
 endif()
 
-find_library(GMP_LIB gmp)
-find_library(GMPXX_LIB gmpxx)
+find_library(GMP_LIB gmp REQUIRED)
+find_library(GMPXX_LIB gmpxx REQUIRED)
 find_package(ZLIB REQUIRED)
 
 set(boost_components ${boost_components} program_options serialization)
