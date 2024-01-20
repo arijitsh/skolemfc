@@ -1,4 +1,4 @@
-# Copyright (c) 2024, Arijit Shaw, Brendan Juba and Kuldeep S. Meel.
+# Copyright (c) 2017, Mate Soos
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -21,46 +21,44 @@
 include_directories(${PROJECT_SOURCE_DIR})
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${Boost_INCLUDE_DIRS})
-include_directories(${GMP_INCLUDE_DIRS})
 include_directories(${CRYPTOMINISAT5_INCLUDE_DIRS})
+include_directories(${ARJUN_INCLUDE_DIRS})
+include_directories(${LOUVAIN_COMMUNITIES_INCLUDE_DIRS})
 include_directories(${APPROXMC_INCLUDE_DIRS})
 include_directories(${UNIGEN_INCLUDE_DIRS})
+include_directories(${Boost_INCLUDE_DIRS})
 
+if (NOT WIN32)
+    add_cxx_flag_if_supported("-Wno-bitfield-constant-conversion")
+    #add_cxx_flag_if_supported("-Wduplicated-cond")
+    #add_cxx_flag_if_supported("-Wduplicated-branches")
+    add_cxx_flag_if_supported("-Wlogical-op")
+    add_cxx_flag_if_supported("-Wrestrict")
+    add_cxx_flag_if_supported("-Wnull-dereference")
+    add_cxx_flag_if_supported("-Wdouble-promotion")
+    add_cxx_flag_if_supported("-Wshadow")
+    add_cxx_flag_if_supported("-Wformat=2")
+    add_cxx_flag_if_supported("-Wextra-semi")
+    add_cxx_flag_if_supported("-pedantic")
+    #add_cxx_flag_if_supported("-Wdeprecated")
+endif()
 
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/GitSHA1.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/GitSHA1.cpp" @ONLY)
 
-add_library (skolemfc
+
+SET(SOURCES
     skolemfc-int.cpp
-    skolemfc.cpp
-    ${CMAKE_CURRENT_BINARY_DIR}/GitSHA1.cpp
-)
+	skolemfc.cpp
+	${CMAKE_CURRENT_BINARY_DIR}/GitSHA1.cpp)
 
-add_executable (skolemfc-bin
-    main.cpp
-)
-
-add_executable (skolemfc-test-bin
-    test.cpp
-)
-
+ADD_LIBRARY(skolemfc ${SOURCES} ${LIB})
 target_link_libraries (skolemfc
-    LINK_PUBLIC ${CRYPTOMINISAT5_LIBRARIES}
-    LINK_PUBLIC ${APPROXMC_LIBRARIES}
-    LINK_PUBLIC ${UNIGEN_LIBRARIES}
-    ${GMPXX_LIB}
-    ${GMP_LIB}
-    ${ZLIB_LIBRARY}
-)
-
-target_link_libraries(skolemfc-bin
-    ${Boost_LIBRARIES}
-    skolemfc
-)
-
-target_link_libraries(skolemfc-test-bin
-    ${Boost_LIBRARIES}
-    skolemfc
+  LINK_PUBLIC ${CRYPTOMINISAT5_LIBRARIES}
+  LINK_PUBLIC ${ARJUN_LIBRARIES}
+  LINK_PUBLIC ${APPROXMC_LIBRARIES}
+  LINK_PUBLIC ${UNIGEN_LIBRARIES}
+  LINK_PUBLIC ${LOUVAIN_COMMUNITIES_LIBRARIES}
+  LINK_PUBLIC ${Boost_LIBRARIES} # due to serialization
 )
 
 set_target_properties(skolemfc PROPERTIES
@@ -69,53 +67,26 @@ set_target_properties(skolemfc PROPERTIES
     SOVERSION ${PROJECT_VERSION_MAJOR}.${PROJECT_VERSION_MINOR}
 )
 
+add_executable (skolemfc-bin
+    main.cpp
+)
+
+set(skolemfc_exec_link_libs
+  skolemfc
+  ${GMPXX_LIB}
+  ${GMP_LIB}
+  ${Boost_LIBRARIES} # due to program_options
+)
+
+IF (ZLIB_FOUND)
+    SET(skolemfc_exec_link_libs ${skolemfc_exec_link_libs} ${ZLIB_LIBRARY})
+ENDIF()
+
+target_link_libraries (skolemfc-bin
+  ${skolemfc_exec_link_libs}
+)
+
 set_target_properties(skolemfc-bin PROPERTIES
     OUTPUT_NAME skolemfc
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
-    INSTALL_RPATH_USE_LINK_PATH TRUE
-)
-
-set_target_properties(skolemfc-test-bin PROPERTIES
-    OUTPUT_NAME test
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}
-)
-
-skolemfc_add_public_header(
-    skolemfc ${CMAKE_CURRENT_SOURCE_DIR}/skolemfc.h )
-
-# -----------------------------------------------------------------------------
-# Copy public headers into build directory include directory.
-# The skolemfcConfig.cmake we generate in the build directory depends on
-# this.
-# -----------------------------------------------------------------------------
-set(HEADER_DEST "${PROJECT_BINARY_DIR}/include/skolemfc")
-add_custom_target(CopyPublicHeaders ALL)
-get_target_property(skolemfc_public_headers skolemfc PUBLIC_HEADER)
-foreach(public_header ${skolemfc_public_headers})
-    get_filename_component(HEADER_NAME ${public_header} NAME)
-    add_custom_command(TARGET CopyPublicHeaders PRE_BUILD
-                       COMMAND ${CMAKE_COMMAND} -E make_directory
-                               "${HEADER_DEST}"
-                       COMMAND ${CMAKE_COMMAND} -E echo
-                       "Copying ${HEADER_NAME} to ${HEADER_DEST}"
-                       COMMAND ${CMAKE_COMMAND} -E
-                           copy_if_different
-                           ${public_header}
-                           "${HEADER_DEST}"
-                      )
-endforeach()
-
-
-install(TARGETS skolemfc
-    EXPORT ${SKOLEMFC_EXPORT_NAME}
-    LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-    PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/skolemfc"
-)
-
-install(TARGETS skolemfc-bin
-    EXPORT ${SKOLEMFC_EXPORT_NAME}
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-)
-
+    INSTALL_RPATH_USE_LINK_PATH TRUE)

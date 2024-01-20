@@ -1,5 +1,5 @@
-# Copyright (c) 2021, Mate Soos
-# Copyright (C) 2024, Arijit Shaw, Brendan Juba, and Kuldeep S. Meel.
+# Copyright (c) 2017, Mate Soos
+# Copyright (C) 2024, Arijit Shaw, Brendan Juba, and Kuldeep S. Meel
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal
@@ -20,10 +20,12 @@
 # THE SOFTWARE.
 
 cmake_minimum_required (VERSION 3.10 FATAL_ERROR)
-set(CMAKE_C_STANDARD 99)
-set(CMAKE_CXX_STANDARD 17)
 
 enable_language( CXX )
+
+set(CMAKE_CXX_EXTENSIONS OFF)
+set(CMAKE_C_STANDARD 99)
+set(CMAKE_CXX_STANDARD 20)
 
 message(STATUS "LIB directory is '${CMAKE_INSTALL_LIBDIR}'")
 message(STATUS "BIN directory is '${CMAKE_INSTALL_BINDIR}'")
@@ -50,8 +52,6 @@ if(POLICY CMP0104)
     cmake_policy(SET CMP0104 NEW)
 endif()
 
-include (GenerateExportHeader)
-include (GNUInstallDirs)
 
 project (skolemfc)
 
@@ -77,36 +77,8 @@ SET(CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 option(BUILD_SHARED_LIBS "Build the shared library" ON)
 option(STATICCOMPILE "Compile to static executable" OFF)
 if (STATICCOMPILE)
-    set(Boost_USE_STATIC_LIBS ON)
     set(BUILD_SHARED_LIBS OFF)
-endif()
-
-option(SANITIZE "Use Clang sanitizers. You MUST use clang++ as the compiler for this to work" OFF)
-macro(add_sanitize_option flagname)
-    SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flagname}" )
-endmacro()
-
-if (SANITIZE)
-    MESSAGE(WARNING " --Using clang sanitizers -- you MUST use clang++ or the compile WILL fail")
-    SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS}  -lasan -lubsan " )
-    SET( CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lasan -lubsan ")
-    add_compile_options("-fsanitize=address")
-    # below warns on overflows EVEN when that's OK, because it's well-defined, disabling
-    #    add_compile_options("-fsanitize=integer")
-    add_compile_options("-fsanitize=undefined")
-    add_compile_options("-fsanitize=null")
-    add_compile_options("-fsanitize=alignment")
-    #add_compile_options("-fno-sanitize-recover")
-    add_compile_options("-fsanitize=return")
-    add_compile_options("-fsanitize=bounds")
-    add_compile_options("-fsanitize=float-divide-by-zero")
-    add_compile_options("-fsanitize=integer-divide-by-zero")
-    #    add_compile_options("-fsanitize=unsigned-integer-overflow")
-    add_compile_options("-fsanitize=signed-integer-overflow")
-    add_compile_options("-fsanitize=bool")
-    add_compile_options("-fsanitize=enum")
-    add_compile_options("-fsanitize=float-cast-overflow")
-    add_compile_options("$<$<CONFIG:RELWITHDEBINFO>:-D_GLIBCXX_ASSERTIONS>")
+    set(Boost_USE_STATIC_LIBS ON)
 endif()
 
 if ((${CMAKE_SYSTEM_NAME} MATCHES "Linux") OR (${CMAKE_SYSTEM_NAME} MATCHES "Darwin"))
@@ -139,8 +111,16 @@ include(CheckCXXCompilerFlag)
 include(CheckCCompilerFlag)
 macro(add_cxx_flag_if_supported flagname)
   check_cxx_compiler_flag("${flagname}" HAVE_FLAG_${flagname})
+
   if(HAVE_FLAG_${flagname})
     SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${flagname}" )
+  endif()
+endmacro()
+macro(add_c_flag_if_supported flagname)
+  check_c_compiler_flag("${flagname}" HAVE_FLAG_${flagname})
+
+  if(HAVE_FLAG_${flagname})
+    SET(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${flagname}" )
   endif()
 endmacro()
 
@@ -149,19 +129,15 @@ if (NOT MSVC)
     add_compile_options( -g)
     add_compile_options( -pthread )
 
-    add_compile_options("$<$<CONFIG:RELWITHDEBINFO>:-O2>")
-    #add_compile_options("$<$<CONFIG:RELWITHDEBINFO>:-mtune=native>")
+    add_compile_options("$<$<CONFIG:RELWITHDEBINFO>:-O3>")
+    add_compile_options("$<$<CONFIG:RELWITHDEBINFO>:-mtune=native>")
 
-    add_compile_options("$<$<CONFIG:RELEASE>:-O2>")
+    add_compile_options("$<$<CONFIG:RELEASE>:-O3>")
     add_compile_options("$<$<CONFIG:RELEASE>:-g0>")
-    #add_compile_options("$<$<CONFIG:RELEASE>:-mtune=native>")
+    add_compile_options("$<$<CONFIG:RELEASE>:-DNDEBUG>")
+    add_compile_options("$<$<CONFIG:RELEASE>:-mtune=native>")
 
     add_compile_options("$<$<CONFIG:DEBUG>:-O0>")
-
-    if(NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -O2")
-        set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -O2")
-    endif()
 
 else()
     # see https://msdn.microsoft.com/en-us/library/fwkeyyhe.aspx for details
@@ -265,6 +241,9 @@ else()
     add_definitions(-D_FORTIFY_SOURCE=0)
 endif()
 
+# -----------------------------------------------------------------------------
+# Flags
+# -----------------------------------------------------------------------------
 if (NOT WIN32)
     if(NOT ENABLE_TESTING AND ${CMAKE_SYSTEM_NAME} MATCHES "Linux" AND NOT COVERAGE)
         #dd_cxx_flag_if_supported("-fvisibility=hidden")
@@ -276,6 +255,7 @@ if (NOT WIN32)
     else()
         add_cxx_flag_if_supported("-mtune=native")
         add_cxx_flag_if_supported("-Wall")
+        # add_cxx_flag_if_supported("-Wconversion") # enable for implicit conversion show
         add_cxx_flag_if_supported("-Wextra")
         add_cxx_flag_if_supported("-Wunused")
         add_cxx_flag_if_supported("-Wsign-compare")
@@ -297,12 +277,57 @@ if (NOT WIN32)
     endif()
 endif()
 
-# -----------------------------------------------------------------------------
-# Look for ZLIB (For reading zipped CNFs)
-# -----------------------------------------------------------------------------
-option(NOZLIB "Don't use zlib" OFF)
+if (NOT WIN32)
+    MESSAGE(STATUS "${CMAKE_C_FLAGS}")
+    add_c_flag_if_supported("-fPIC")
+    add_c_flag_if_supported("-std=c99")
+    add_c_flag_if_supported("-Wall")
+    add_c_flag_if_supported("-msse4.1")
+    add_c_flag_if_supported("-mpclmul")
+endif()
 
-# cannot currently compile static zlib under Windows
+# generate JSON file of compile commands -- useful for code extension
+set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
+
+option(SANITIZE "Use Clang sanitizers. You MUST use clang++ as the compiler for this to work" OFF)
+if (SANITIZE)
+    MESSAGE(WARNING " --Using clang sanitizers -- you MUST use clang++ or the compile WILL fail")
+    SET( CMAKE_EXE_LINKER_FLAGS  "${CMAKE_EXE_LINKER_FLAGS}  -lasan -lubsan " )
+    SET( CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -lasan -lubsan ")
+    add_compile_options("-fsanitize=address")
+    # add_compile_options("-fsanitize=integer")
+    # add_compile_options("-fsanitize=undefined")
+
+    add_compile_options("-fsanitize=null")
+    add_compile_options("-fsanitize=alignment")
+    add_compile_options("-fno-sanitize-recover")
+
+    add_compile_options("-fsanitize=return")
+    add_compile_options("-fsanitize=bounds")
+    add_compile_options("-fsanitize=float-divide-by-zero")
+    add_compile_options("-fsanitize=integer-divide-by-zero")
+    # add_compile_options("-fsanitize=unsigned-integer-overflow")
+    # add_compile_options("-fsanitize=signed-integer-overflow")
+    add_compile_options("-fsanitize=bool")
+    add_compile_options("-fsanitize=enum")
+    add_compile_options("-fsanitize=float-cast-overflow")
+
+    #add_compile_options("-Weverything")
+    #add_compile_options("-Wshorten-64-to-32")
+    #add_compile_options("-Wweak-vtables")
+    #add_compile_options("-Wsign-conversion")
+    #add_compile_options("-Wconversion")
+endif()
+
+
+# -----------------------------------------------------------------------------
+# Dependencies
+# -----------------------------------------------------------------------------
+set (boost_components "")
+set(boost_components ${boost_components} program_options serialization)
+find_package( Boost 1.46 COMPONENTS ${boost_components})
+
+option(NOZLIB "Don't use zlib" OFF)
 if (NOT NOZLIB AND NOT (STATICCOMPILE AND WIN32))
     find_package(ZLIB)
     IF (ZLIB_FOUND)
@@ -317,16 +342,12 @@ endif()
 
 find_library(GMP_LIB gmp REQUIRED)
 find_library(GMPXX_LIB gmpxx REQUIRED)
-find_package(ZLIB REQUIRED)
-
-set(boost_components ${boost_components} program_options serialization)
-find_package( Boost 1.46 COMPONENTS ${boost_components} REQUIRED)
-
-find_package(cryptominisat5 CONFIG)
+find_package(cryptominisat5 CONFIG REQUIRED)
+find_package(arjun CONFIG REQUIRED)
+find_package(louvain_communities CONFIG REQUIRED)
 if (cryptominisat5_FOUND)
     message(STATUS "Found CryptoMiniSat 5.x")
     message(STATUS "CryptoMiniSat5 dynamic lib: ${CRYPTOMINISAT5_LIBRARIES}")
-    message(STATUS "CryptoMiniSat5 dynamic lib dirs: ${CRYPTOMINISAT5_LIBRARY_DIRS}")
     message(STATUS "CryptoMiniSat5 static lib:  ${CRYPTOMINISAT5_STATIC_LIBRARIES}")
     message(STATUS "CryptoMiniSat5 static lib deps: ${CRYPTOMINISAT5_STATIC_LIBRARIES_DEPS}")
     message(STATUS "CryptoMiniSat5 include dirs: ${CRYPTOMINISAT5_INCLUDE_DIRS}")
@@ -334,63 +355,40 @@ else()
     message(FATAL_ERROR "Cannot find CryptoMiniSat5. Please install it! Exiting.")
 endif()
 
-
-# -----------------------------------------------------------------------------
-# Find UniGen
-# -----------------------------------------------------------------------------
 option(NOUNIGEN "Don't try to use UniSamp" OFF)
 
-if (NOT NOUNIGEN)
-  set(unigen_DIR "" CACHE PATH "Path to directory containing unigenConfig.cmake") #AS: No clue
 
-  find_package(louvain_communities CONFIG)
-  if (louvain_communities_FOUND)
-      message(STATUS "Found Louvain Communities library")
-      message(STATUS "Louvain Communities dynamic lib: ${LOUVAIN_COMMUNITIES_LIBRARIES}")
-      message(STATUS "Louvain Communities include dirs: ${LOUVAIN_COMMUNITIES_INCLUDE_DIRS}")
-  else()
-      message(WARNING "Cannot find Louvain Communities libraries.")
-  endif()
-  find_package(arjun CONFIG)
-  if (arjun_FOUND)
-      message(STATUS "Found Arjun")
-      message(STATUS "Arjun dynamic lib : ${ARJUN_LIBRARIES}")
-      message(STATUS "Arjun include dirs: ${ARJUN_INCLUDE_DIRS}")
-      include_directories(SYSTEM ${ARJUN_INCLUDE_DIRS})
-  else()
-      message(FATAL_ERROR "Cannot find Arjun. Please install it! Exiting.")
-  endif()
-  find_package(approxmc CONFIG)
-  if (approxmc_FOUND)
-    message(STATUS "Found approxmc")
-    message(STATUS "ApproxMC dynamic lib: ${APPROXMC_LIBRARIES}")
-    message(STATUS "ApproxMC static lib:  ${APPROXMC_STATIC_LIBRARIES}")
-    message(STATUS "ApproxMC static lib deps: ${APPROXMC_STATIC_LIBRARIES_DEPS}")
-    message(STATUS "ApproxMC include dirs: ${APPROXMC_INCLUDE_DIRS}")
-  else()
-    message(FATAL_ERROR "Cannot find ApproxMC. Please install it! Exiting.")
-  endif()
-
-  find_package(unigen CONFIG)
-  if (unigen_FOUND)
-    message(STATUS "UniGen dynamic lib: ${UNIGEN_LIBRARIES}")
-    message(STATUS "UniGen static lib:  ${UNIGEN_STATIC_LIBRARIES}")
-    message(STATUS "UniGen static lib deps: ${UNIGEN_STATIC_LIBRARIES_DEPS}")
-    message(STATUS "UniGen include dirs: ${UNIGEN_INCLUDE_DIRS}")
-    add_definitions(-DUSE_UNIGEN)
-    set(USE_UNIGEN ON)
-    include_directories(SYSTEM ${UNIGEN_INCLUDE_DIRS})
-  else()
-    message(STATUS "UniGen NOT found")
-  endif()
-endif()
-MESSAGE(STATUS "Enables Uniform Sampling, allows --unisamp option")
-
-option(FORCE_UNIG "Must build with UniGen" OFF)
-if (FORCE_UNIG AND NOT USE_UNIGEN)
-    message(FATAL_ERROR "UniSamp was not found but it was requested. Exiting.")
+find_package(approxmc CONFIG)
+if (approxmc_FOUND)
+message(STATUS "Found approxmc")
+message(STATUS "ApproxMC dynamic lib: ${APPROXMC_LIBRARIES}")
+message(STATUS "ApproxMC static lib:  ${APPROXMC_STATIC_LIBRARIES}")
+message(STATUS "ApproxMC static lib deps: ${APPROXMC_STATIC_LIBRARIES_DEPS}")
+message(STATUS "ApproxMC include dirs: ${APPROXMC_INCLUDE_DIRS}")
+else()
+message(FATAL_ERROR "Cannot find ApproxMC. Please install it! Exiting.")
 endif()
 
+find_package(unigen CONFIG)
+if (unigen_FOUND)
+message(STATUS "UniGen dynamic lib: ${UNIGEN_LIBRARIES}")
+message(STATUS "UniGen static lib:  ${UNIGEN_STATIC_LIBRARIES}")
+message(STATUS "UniGen static lib deps: ${UNIGEN_STATIC_LIBRARIES_DEPS}")
+message(STATUS "UniGen include dirs: ${UNIGEN_INCLUDE_DIRS}")
+add_definitions(-DUSE_UNIGEN)
+set(USE_UNIGEN ON)
+include_directories(SYSTEM ${UNIGEN_INCLUDE_DIRS})
+else()
+message(STATUS "UniGen NOT found")
+endif()
+
+# add compile defines
+set(COMPILE_DEFINES)
+foreach( d ${DirDefs} )
+    # message( STATUS "Found Define: " ${d} )
+    set(COMPILE_DEFINES "${COMPILE_DEFINES} -D${d}")
+endforeach()
+message(STATUS "All defines at startup: ${COMPILE_DEFINES}")
 
 # -----------------------------------------------------------------------------
 # Add GIT version
@@ -412,7 +410,7 @@ if (GIT_EXECUTABLE)
 else()
   set(GIT_SHA "GIT-hash-notfound")
 endif()
-set(SKOLEMFC_FULL_VERSION "0.0.1")
+set(SKOLEMFC_FULL_VERSION "1.0.1")
 
 string(REPLACE "." ";" SKOLEMFC_FULL_VERSION_LIST ${SKOLEMFC_FULL_VERSION})
 SetVersionNumber("PROJECT" ${SKOLEMFC_FULL_VERSION_LIST})
@@ -422,95 +420,4 @@ MESSAGE(STATUS "PROJECT_VERSION_MINOR: ${PROJECT_VERSION_MINOR}")
 MESSAGE(STATUS "PROJECT_VERSION_PATCH: ${PROJECT_VERSION_PATCH}")
 
 
-#query definitions
-get_directory_property( DirDefs DIRECTORY ${CMAKE_SOURCE_DIR} COMPILE_DEFINITIONS )
-set(COMPILE_DEFINES)
-foreach( d ${DirDefs} )
-    # message( STATUS "Found Define: " ${d} )
-    set(COMPILE_DEFINES "${COMPILE_DEFINES} -D${d}")
-endforeach()
-message(STATUS "All defines at startup: ${COMPILE_DEFINES}")
-
-# set .so/.a directories
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/lib)
-
-# headers
-macro(skolemfc_add_public_header LIBTARGET HEADER)
-    get_target_property(EXISTING_PUBLIC_HEADERS ${LIBTARGET} PUBLIC_HEADER)
-    if(EXISTING_PUBLIC_HEADERS)
-        list(APPEND EXISTING_PUBLIC_HEADERS "${HEADER}")
-    else()
-        # Do not append to empty list
-        set(EXISTING_PUBLIC_HEADERS "${HEADER}")
-    endif()
-    set_target_properties(
-        ${LIBTARGET}
-        PROPERTIES
-        PUBLIC_HEADER "${EXISTING_PUBLIC_HEADERS}"
-     )
-endmacro()
-
-set(SKOLEMFC_EXPORT_NAME "skolemfcTargets")
-
 add_subdirectory(src)
-
-# -----------------------------------------------------------------------------
-# Add uninstall target for makefiles
-# -----------------------------------------------------------------------------
-configure_file(
-    "${CMAKE_CURRENT_SOURCE_DIR}/cmake/cmake_uninstall.cmake.in"
-    "${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake"
-    IMMEDIATE @ONLY
-)
-
-add_custom_target(uninstall
-    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_BINARY_DIR}/cmake_uninstall.cmake
-)
-
-# -----------------------------------------------------------------------------
-# Export our targets so that other CMake based projects can interface with
-# the build of skolemfc in the build-tree
-# -----------------------------------------------------------------------------
-set(SKOLEMFC_TARGETS_FILENAME "skolemfcTargets.cmake")
-set(SKOLEMFC_CONFIG_FILENAME "skolemfcConfig.cmake")
-
-# Export targets
-set(MY_TARGETS skolemfc)
-export(
-    TARGETS ${MY_TARGETS}
-    FILE "${CMAKE_CURRENT_BINARY_DIR}/${SKOLEMFC_TARGETS_FILENAME}"
-)
-
-# Create skolemfcConfig file
-set(EXPORT_TYPE "Build-tree")
-set(CONF_INCLUDE_DIRS "${CMAKE_CURRENT_BINARY_DIR}/include")
-configure_file(skolemfcConfig.cmake.in
-    "${CMAKE_CURRENT_BINARY_DIR}/${SKOLEMFC_CONFIG_FILENAME}" @ONLY
-)
-
-# Export this package to the CMake user package registry
-# Now the user can just use find_package(cryptominisat5) on their system
-export(PACKAGE skolemfc)
-
-set(DEF_INSTALL_CMAKE_DIR lib/cmake/skolemfc)
-set(SKOLEMFC_INSTALL_CMAKE_DIR ${DEF_INSTALL_CMAKE_DIR} CACHE PATH
-    "Installation directory for skolemfc CMake files")
-
-# Create skolemfcConfig file
-set(EXPORT_TYPE "installed")
-set(CONF_INCLUDE_DIRS "${CMAKE_INSTALL_PREFIX}/include")
-configure_file(skolemfcConfig.cmake.in
-   "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${SKOLEMFC_CONFIG_FILENAME}" @ONLY
-)
-
-install(FILES
-    "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_FILES_DIRECTORY}/${SKOLEMFC_CONFIG_FILENAME}"
-    DESTINATION "${SKOLEMFC_INSTALL_CMAKE_DIR}"
-)
-
-# Install the export set for use with the install-tree
-install(
-    EXPORT ${SKOLEMFC_EXPORT_NAME}
-    DESTINATION "${SKOLEMFC_INSTALL_CMAKE_DIR}"
-)
