@@ -75,6 +75,7 @@ struct SklFC
   void use_appmc_for_esto() { use_appmc_for_est0 = true; }
   void set_constants();
   void get_est0();
+  void get_est0_ganak();
   void get_est0_gpmc();
   void get_est0_approxmc();
   void get_g_count();
