@@ -101,6 +101,17 @@ void SkolemFC::SklFC::set_constants()
   cout << "c [sklfc] threshold (x |Y|) is set to: " << thresh << endl;
 }
 
+bool SkolemFC::SklFC::show_count()
+{
+  if(skolemfc->p->verbosity <= 1)
+    return false;
+  else if (iteration == next_iter_to_show_output) {
+    if (iteration <= 10) next_iter_to_show_output += 1;
+  }
+  return true;
+}
+
+
 void SkolemFC::SklFC::get_est0_gpmc()
 {
   std::stringstream ss;
@@ -157,7 +168,7 @@ void SkolemFC::SklFC::get_est0_gpmc()
     close(fromGPMC[1]);
 
     // Execute gpmc
-    execlp("./gpmc", "./gpmc", "-mode=2", (char*)NULL);
+    execlp("./ganak", "./ganak", (char*)NULL);
     perror("execlp");  // execlp only returns on error
     exit(EXIT_FAILURE);
   }
@@ -587,9 +598,10 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   iteration++;
   log_skolemcount += logcount_this_it;
 
-  if (skolemfc->p->verbosity > 1 && iteration % 10 == 0)
+  if (show_count())
   {
-    cout << "c [sklfc] logcount at iteration " << iteration << ": "
+    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << "] logcount at iteration " << iteration << ": "
          << logcount_this_it << " log_skolemcount: " << log_skolemcount << endl;
   }
 
@@ -613,6 +625,8 @@ void SkolemFC::SklFC::count()
   else
   {
     get_samples(sample_num_est);
+    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << "] Starting to get count for each assignment" << endl;
 
     while ((log_skolemcount <= thresh) && okay)
     {
