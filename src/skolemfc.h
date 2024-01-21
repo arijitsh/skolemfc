@@ -91,6 +91,8 @@ struct SklFC
 
   void count();
 
+  bool show_count();
+
   // Set config
   void set_seed(uint32_t seed);
   void set_verbosity(uint32_t verb);
@@ -111,6 +113,7 @@ struct SklFC
   double epsilon_f, delta_f;
   double epsilon_s, delta_c, epsilon_c;
   uint64_t sample_num_est;
+  uint64_t next_iter_to_show_output = 1;
   bool okay = true;
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);
