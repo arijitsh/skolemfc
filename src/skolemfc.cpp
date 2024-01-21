@@ -106,9 +106,13 @@ bool SkolemFC::SklFC::show_count()
   if(skolemfc->p->verbosity <= 1)
     return false;
   else if (iteration == next_iter_to_show_output) {
-    if (iteration <= 10) next_iter_to_show_output += 1;
+    if (iteration < 10)
+      next_iter_to_show_output += 1;
+    else
+      next_iter_to_show_output += 10;
+    return true;
   }
-  return true;
+  return false;
 }
 
 
@@ -200,8 +204,10 @@ void SkolemFC::SklFC::get_est0_gpmc()
     std::istringstream iss(gpmcOutput);
     string line;
     mpz_class result;  // Use mpz_class instead of mpz_t
+    bool ganak_count_line_found = false;
     while (getline(iss, line))
     {
+      cout << line << endl;
       if (line.rfind("c s exact arb int ", 0) == 0)
       {  // Line starts with the pattern
         string numberStr = line.substr(strlen("c s exact arb int "));
@@ -209,7 +215,13 @@ void SkolemFC::SklFC::get_est0_gpmc()
             numberStr,
             10);  // Set the value of result, 10 is the base for decimal numbers
         break;
+        ganak_count_line_found = true;
       }
+    }
+    if (!ganak_count_line_found) {
+      okay =  false;
+      cout << "c [sklfc] ERROR: No Count line found from Ganak" << endl;
+      exit(0);
     }
     if (result == 0)
     {
@@ -237,54 +249,129 @@ void SkolemFC::SklFC::get_est0()
   }
   else
   {
-    get_est0_gpmc();
+    get_est0_ganak();
   }
 }
 
 void SkolemFC::SklFC::get_est0_ganak()
 {
-  ApproxMC::AppMC appmc;
+ std::stringstream ss;
 
-  appmc.new_vars(skolemfc->p->nVars());
+  ss << "p cnf " << nVars() << " " << skolemfc->p->clauses.size() << endl;
 
-  for (auto& clause : skolemfc->p->clauses)
+  ss << "c p show";
+  for (uint var : skolemfc->p->forall_vars)
   {
-    appmc.add_clause(clause);
+    ss << " " << var + 1;
+  }
+  ss << " 0" << endl;
+
+  for (const auto& clause : skolemfc->p->clauses)
+  {
+    for (const Lit& lit : clause)
+    {
+      ss << lit << " ";
+    }
+    ss << "0" << endl;
   }
 
-  appmc.set_projection_set(skolemfc->p->forall_vars);
+
+    string cnfContent = ss.str();
+
+  // Create a temporary file
+  char tmpFilename[] = "/tmp/ganak_input_XXXXXX";
+  int fd = mkstemp(tmpFilename); // Creates a unique temporary file
+  if (fd == -1) {
+    perror("mkstemp");
+    exit(EXIT_FAILURE);
+  }
+
+  // Write CNF to the temporary file
+  write(fd, cnfContent.c_str(), cnfContent.size());
+  close(fd); // Close the file descriptor
+
+  pid_t pid;
+  mpz_t result;
+
+  // Create a pipe for communication between parent and child
+  int toParent[2];
+  if (pipe(toParent) == -1) {
+    perror("pipe");
+    exit(EXIT_FAILURE);
+  }
+
+  pid = fork();
+  if (pid == -1) {
+    perror("fork");
+    exit(EXIT_FAILURE);
+  }
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
-       << "] counting for F formula using ApproxMC. SkolemFC will not give any "
-          "guarantee on count!!"
-       << endl;
+       << "] counting for F formula using ganak" << endl;
 
-  ApproxMC::SolCount c = appmc.count();
+  if (pid == 0) { // Child process
+    // Redirect stdout to the write-end of the pipe
+    dup2(toParent[1], STDOUT_FILENO);
+    close(toParent[0]); // Close the read-end as it's not used by the child
+    close(toParent[1]); // Close the write-end after duplicating
 
-  if (c.cellSolCount == 0)
-  {
-    cout << "c [sklfc] F is UNSAT. Est1 = 0" << endl;
-    okay = false;
-  }
+    // Execute ganak with the temporary file as input
+    execlp("./ganak", "./ganak", tmpFilename, (char*)NULL);
+    perror("execlp"); // execlp only returns on error
+    exit(EXIT_FAILURE);
+  } else { // Parent process
+    close(toParent[1]); // Close the write-end as it's not used by the parent
 
-  mpz_class num_sol;
+    // Read output from ganak
+    char buffer[128];
+    string ganakOutput;
+    ssize_t count;
+    while ((count = read(toParent[0], buffer, sizeof(buffer) - 1)) > 0) {
+      buffer[count] = '\0';
+      ganakOutput += buffer;
+    }
+    close(toParent[0]); // Close the read-end after reading
 
-  mpz_pow_ui(
+    // Wait for child process to finish
+    waitpid(pid, NULL, 0);
+
+    mpz_init(result);
+    // Parse ganakOutput to find the required number and store it in result
+    std::istringstream iss(ganakOutput);
+    string line;
+    mpz_class result; // Use mpz_class instead of mpz_t
+    bool ganak_count_line_found = false;
+    while (getline(iss, line)) {
+      cout << line << endl;
+      if (line.rfind("c s exact arb int ", 0) == 0) { // Line starts with the pattern
+        string numberStr = line.substr(strlen("c s exact arb int "));
+        result.set_str(numberStr, 10); // Set the value of result, 10 is the base for decimal numbers
+        ganak_count_line_found = true;
+        break;
+      }
+    }
+    if (!ganak_count_line_found) {
+      cout << "c [sklfc] ERROR: No Count line found from ganak" << endl;
+      exit(0);
+    }
+    if (result == 0) {
+      cout << "c [sklfc] F is UNSAT. Est1 = 0" << endl;
+    }
+    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+         << (cpuTime() - start_time_skolemfc)
+         << "]  F formula has exact (projected) count: " << result << endl;
+    mpz_pow_ui(
       value_est0.get_mpz_t(), mpz_class(2).get_mpz_t(), skolemfc->p->forall_vars.size());
-  mpz_pow_ui(
-      num_sol.get_mpz_t(), mpz_class(2).get_mpz_t(), c.hashCount);  // a^b
+    value_est0 -= result;
+    value_est0 *= skolemfc->p->exists_vars.size(); // TODO missing 2^n
 
-  num_sol *= c.cellSolCount;
-  value_est0 -= num_sol;
+    value_est0 *= result;
+    cout << "c [sklfc] Est0 = " << value_est0 << endl;
 
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "]  F formula has approximated (projected) count: " << num_sol
-       << endl;
-
-
-  cout << "c [sklfc] Approximate Est0 = " << value_est0 << endl;
+    // Remove the temporary file
+    unlink(tmpFilename);
+  }
 }
 
 void SkolemFC::SklFC::get_est0_approxmc()
@@ -404,7 +491,9 @@ void SkolemFC::SklFC::get_sample_num_est()
     }
     apmc.add_clause(new_clause);
   }
-
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "] Running ApproxMC to estimate number of samples needed"<< endl;
   ApproxMC::SolCount c = apmc.count();
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
