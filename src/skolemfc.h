@@ -74,17 +74,18 @@ struct SklFC
   void set_num_threads(int nthreads) { numthreads = nthreads; }
   void use_appmc_for_esto() { use_appmc_for_est0 = true; }
   void set_constants();
-  void get_est0();
-  void get_est0_ganak();
+  mpz_class get_est0();
+  mpz_class get_est0_ganak();
+  mpz_class get_est0_approxmc();
   void get_est0_gpmc();
-  void get_est0_approxmc();
-  void get_g_count();
+  mpz_class get_g_count_approxmc();
+  mpz_class get_g_count_ganak();
   void get_samples(uint64_t samples_needed = 0, int seed = 1);
   void get_samples_multithread(uint64_t samples_needed = 0);
   void get_and_add_count_for_a_sample();
   void get_and_add_count_multithred();
   void get_and_add_count_onethred(vector<vector<int>> samples);
-  mpf_class get_final_count();
+  mpf_class get_est1(mpz_class s1size);
   void get_sample_num_est();
   vector<vector<Lit>> create_formula_from_sample(vector<vector<int>> samples,
                                                  int sample_num);
@@ -102,8 +103,6 @@ struct SklFC
   std::vector<std::thread> threads;
   std::mutex cout_mutex, vec_mutex, iter_mutex;
   uint64_t iteration = 0;
-  ApproxMC::SolCount count_g_formula;
-  mpz_class value_est0 = 0;
   mpf_class log_skolemcount = 0;
   double thresh = 1;
   uint numthreads;
