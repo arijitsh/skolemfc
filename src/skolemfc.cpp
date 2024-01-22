@@ -1021,6 +1021,29 @@ const char* SkolemFC::SklFC::get_compilation_env()
   return SkolemFCInt::get_compilation_env();
 }
 
-void SkolemFC::SklFC::set_verbosity(uint32_t verb) {}
+void SkolemFC::SklFC::set_verbosity(uint32_t verb_i) {
+  verb = verb_i;
+}
 
-void SkolemFC::SklFC::set_seed(uint32_t seed) {}
+void SkolemFC::SklFC::set_seed(uint32_t seed_i) {
+  seed = seed_i;
+}
+
+void SkolemFC::SklFC::set_parameters(double epsilon_i, double delta_i)
+{
+  epsilon = epsilon_i;
+  delta = delta_i;
+}
+
+void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w, double delta_w)
+{
+  // Assert that epsilon and delta are set already
+  // Please call set_parameters before that
+
+  assert(epsilon > 0);
+  epsilon_f = epsilon * epsilon_w;
+  delta_f = delta * delta_w;
+  epsilon_s = epsilon - epsilon_f - 0.1;
+  delta_c = delta - delta_f;
+  epsilon_c = 4.658;
+}

@@ -101,6 +101,8 @@ struct SklFC
   // Set config
   void set_seed(uint32_t seed);
   void set_verbosity(uint32_t verb);
+  void set_parameters(double, double );
+  void set_dklr_parameters(double, double );
 
  private:
   SklFCPrivate* skolemfc = NULL;
@@ -111,13 +113,15 @@ struct SklFC
   double thresh = 1;
   uint numthreads;
   bool use_appmc_for_est0 = false;
-  double epsilon, delta;
+  double epsilon = 0, delta = 0;
   double start_time_skolemfc, start_time_this;
   double epsilon_f, delta_f;
   double epsilon_s, delta_c, epsilon_c;
   uint64_t sample_num_est;
   uint64_t next_iter_to_show_output = 1;
   bool okay = true;
+  uint32_t seed = 1;
+  uint verb = 0;
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);
   vector<vector<int>> samples_from_unisamp;
