@@ -248,26 +248,35 @@ mpz_class SkolemFC::SklFC::get_est0()
 {
   mpz_class est0;
 
+  mpz_pow_ui(est0.get_mpz_t(),
+             mpz_class(2).get_mpz_t(),
+             skolemfc->p->forall_vars.size());
+
   if (ignore_unsat)
     est0 = 0;
 
   else if (exactcount_s0)
   {
-    est0 = count_using_ganak(
+    cout << "c [sklfc] Employing Ganak to count G formula" << endl;
+    est0 -= count_using_ganak(
         skolemfc->p->nVars(), skolemfc->p->clauses, skolemfc->p->forall_vars);
   }
   else
   {
+    cout << "c [sklfc] Employing ApproxMC to count G formula" << endl;
     ApproxMC::SolCount c;
     c = count_using_approxmc(skolemfc->p->nVars(),
                              skolemfc->p->clauses,
                              skolemfc->p->forall_vars,
                              epsilon_gc,
                              delta_gc);
-    est0 = absolute_count_from_appmc(c);
+    est0 -= absolute_count_from_appmc(c);
   }
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "]  F formula has (projected) count: " << est0 << endl;
 
-  cout << "c [sklfc] Pass Est0: " << std::setprecision(2) << std::fixed
+  cout << "c Pass Est0: " << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc) << endl;
 
   return est0;
@@ -276,15 +285,16 @@ mpz_class SkolemFC::SklFC::get_est0()
 mpz_class SkolemFC::SklFC::get_g_count()
 {
   mpz_class s1size;
-
   if (exactcount_s2)
   {
+    cout << "c [sklfc] Employing Ganak to count G formula" << endl;
     s1size = count_using_ganak(skolemfc->p->nGVars(),
                                skolemfc->p->g_formula_clauses,
                                skolemfc->p->forall_vars);
   }
   else
   {
+    cout << "c [sklfc] Employing ApproxMC to count G formula" << endl;
     ApproxMC::SolCount c;
     c = count_using_approxmc(skolemfc->p->nGVars(),
                              skolemfc->p->g_formula_clauses,
@@ -293,7 +303,10 @@ mpz_class SkolemFC::SklFC::get_g_count()
                              delta_gc);
     s1size = absolute_count_from_appmc(c);
   }
-  cout << "c [sklfc] Pass Gcount: " << std::setprecision(2) << std::fixed
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "]  G formula has (projected) count: " << s1size << endl;
+  cout << "c Pass Gcount: " << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc) << endl;
   return s1size;
 }
@@ -458,15 +471,9 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
     {
       cout << "c [sklfc] G is UNSAT. Est1 = 0" << endl;
     }
-    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-         << (cpuTime() - start_time_skolemfc)
-         << "]  G formula has exact (projected) count: " << ganak_count << endl;
-
     // Remove the temporary file
     unlink(tmpFilename);
   }
-  cout << "c [sklfc] Pass S2count: " << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc) << endl;
 
   return ganak_count;
 }
@@ -478,23 +485,19 @@ void SkolemFC::SklFC::get_sample_num_est()
        << "] estimating number of samples needed" << endl;
 
   CMSat::SATSolver cms;
-  ApproxMC::AppMC appmc;
-  ArjunNS::Arjun arjun;
+  vector<vector<Lit>> clauses;
 
-  arjun.set_seed(123);
-  arjun.set_verbosity(0);
-  arjun.set_simp(1);
-
-  arjun.new_vars(skolemfc->p->nGVars());
   cms.new_vars(skolemfc->p->nGVars());
+  vector<uint> empty;
 
   for (auto& clause : skolemfc->p->g_formula_clauses)
   {
-    arjun.add_clause(clause);
+    clauses.push_back(clause);
     cms.add_clause(clause);
   }
 
   auto res = cms.solve();
+
   vector<lbool> model = cms.get_model();
   vector<Lit> new_clause;
 
@@ -510,67 +513,34 @@ void SkolemFC::SklFC::get_sample_num_est()
       assert(model[var] == CMSat::l_False);
       new_clause.push_back(Lit(var, true));
     }
-    arjun.add_clause(new_clause);
+    clauses.push_back(new_clause);
   }
-
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "] got a solution by CMS for estimating, now counting that" << endl;
 
   if (res == CMSat::l_False)
   {
     cout << "c Unsat G" << endl;
   }
 
-  vector<uint32_t> sampling_vars;
-  vector<uint32_t> empty_occ_sampl_vars;
-
-  arjun.start_with_clean_sampling_set();
-  empty_occ_sampl_vars = arjun.get_empty_occ_sampl_vars();
-  sampling_vars = arjun.get_indep_set();
-  const auto ret =
-      arjun.get_fully_simplified_renumbered_cnf(sampling_vars, false, true);
-
-  if (skolemfc->p->verbosity > 1)
-  {
-    cout << "c [sklfc->arjun] Arjun returned formula with " << ret.nvars
-         << " variables " << ret.cnf.size() << " clauses and "
-         << ret.sampling_vars.size() << " sized ind set" << endl;
-  }
-
-  appmc.new_vars(ret.nvars);
-  for (const auto& cl : ret.cnf) appmc.add_clause(cl);
-  sampling_vars = ret.sampling_vars;
-  uint32_t offset_count_by_2_pow = ret.empty_occs;
-
-  appmc.set_projection_set(sampling_vars);
-  appmc.set_verbosity(0);
-  appmc.set_pivot_by_sqrt2(1);
-  appmc.set_epsilon(4.657);
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "] got a solution by CMS for estimating, now counting that" << endl;
 
   ApproxMC::SolCount c;
-  if (!sampling_vars.empty())
-  {
-    appmc.set_projection_set(sampling_vars);
-    c = appmc.count();
-  }
-  else
-  {
-    c.hashCount = 0;
-    c.cellSolCount = 1;
-  }
+  c = count_using_approxmc(skolemfc->p->nGVars(), clauses, empty, 4.7, 0.2);
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] Estimated count from each it: " << c.cellSolCount << " * 2 ** "
-       << c.hashCount + offset_count_by_2_pow << endl;
-  sample_num_est =
-      1.0 * thresh
-      / (c.hashCount + offset_count_by_2_pow + log2(c.cellSolCount));
-  //  sample_num_est = 1320;
+       << c.hashCount << endl;
+
+  sample_num_est = 1.0 * thresh / (c.hashCount + log2(c.cellSolCount));
+
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] approximated number of iterations: " << sample_num_est << endl;
+
+  cout << "c Pass SizeEst: " << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << endl;
 }
 
 void SkolemFC::SklFC::unigen_callback(const vector<int>& solution, void*)
@@ -644,7 +614,6 @@ mpf_class SkolemFC::SklFC::get_est1(mpz_class s1size)
 vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(
     vector<vector<int>> samples, int sample_num)
 {
-  // TODO if already made samples are not enough, then create a new set
   vector<vector<Lit>> formula = skolemfc->p->clauses;
   vector<Lit> new_clause;
   for (auto int_lit : samples[sample_num])
@@ -771,7 +740,6 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
 
   appmc.set_verbosity(0);
 
-  appmc.set_delta(1.0 / (double)sample_num_est);
   ApproxMC::SolCount c;
   if (!sampling_vars.empty())
   {
@@ -818,9 +786,8 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   if (show_count())
   {
     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-         << (cpuTime() - start_time_skolemfc) << "] logcount at iteration "
-         << iteration << ": " << c.cellSolCount << "* 2 **" << c.hashCount
-         << " " << logcount_this_it << " log_skolemcount: " << log_skolemcount
+         << (cpuTime() - start_time_skolemfc) << "] iteration:   " << iteration
+         << " [mc " << c.cellSolCount << " * 2 ** " << c.hashCount << " ]"
          << endl;
   }
 }
@@ -836,14 +803,15 @@ mpz_class SkolemFC::SklFC::absolute_count_from_appmc(ApproxMC::SolCount c)
 void SkolemFC::SklFC::count()
 {
   mpf_class count;
-  mpz_class s1size;
+  mpz_class s2size;
+
   set_constants();
 
   count = get_est0();
 
   skolemfc->p->create_g_formula();
 
-  get_g_count();
+  s2size = get_g_count();
 
   if (okay) get_sample_num_est();
 
@@ -864,7 +832,7 @@ void SkolemFC::SklFC::count()
       get_and_add_count_for_a_sample();
     }
   }
-  count += get_est1(s1size);
+  count += get_est1(s2size);
 
   cout << "s fc 2 ** " << count << endl;
 }
