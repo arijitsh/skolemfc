@@ -252,15 +252,50 @@ mpz_class SkolemFC::SklFC::get_est0()
     est0 = 0;
 
   else if (exactcount_s0)
-    est0 = get_est0_ganak();
-
+  {
+    est0 = count_using_ganak(
+        skolemfc->p->nVars(), skolemfc->p->clauses, skolemfc->p->forall_vars);
+  }
   else
-    est0 = get_est0_approxmc();
+  {
+    ApproxMC::SolCount c;
+    c = count_using_approxmc(skolemfc->p->nVars(),
+                             skolemfc->p->clauses,
+                             skolemfc->p->forall_vars,
+                             epsilon_gc,
+                             delta_gc);
+    est0 = absolute_count_from_appmc(c);
+  }
 
   cout << "c [sklfc] Pass Est0: " << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc) << endl;
 
   return est0;
+}
+
+mpz_class SkolemFC::SklFC::get_g_count()
+{
+  mpz_class s1size;
+
+  if (exactcount_s2)
+  {
+    s1size = count_using_ganak(skolemfc->p->nGVars(),
+                               skolemfc->p->g_formula_clauses,
+                               skolemfc->p->forall_vars);
+  }
+  else
+  {
+    ApproxMC::SolCount c;
+    c = count_using_approxmc(skolemfc->p->nGVars(),
+                             skolemfc->p->g_formula_clauses,
+                             skolemfc->p->forall_vars,
+                             epsilon_gc,
+                             delta_gc);
+    s1size = absolute_count_from_appmc(c);
+  }
+  cout << "c [sklfc] Pass Gcount: " << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << endl;
+  return s1size;
 }
 
 string SkolemFC::SklFC::print_cnf(uint64_t num_clauses,
@@ -308,245 +343,23 @@ string SkolemFC::SklFC::print_cnf(uint64_t num_clauses,
   return tempfile;
 }
 
-mpz_class SkolemFC::SklFC::get_est0_ganak()
+mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
+                                             vector<vector<Lit>> clauses,
+                                             vector<uint> projection)
 {
-  mpz_class est0;
   mpz_class ganak_count;
 
   std::stringstream ss;
 
-  ss << "p cnf " << nVars() << " " << skolemfc->p->clauses.size() << endl;
-
+  ss << "p cnf " << nvars << " " << clauses.size() << endl;
   ss << "c p show";
-  for (uint var : skolemfc->p->forall_vars)
+  for (uint var : projection)
   {
     ss << " " << var + 1;
   }
   ss << " 0" << endl;
 
-  for (const auto& clause : skolemfc->p->clauses)
-  {
-    for (const Lit& lit : clause)
-    {
-      ss << lit << " ";
-    }
-    ss << "0" << endl;
-  }
-
-  string cnfContent = ss.str();
-
-  // Create a temporary file
-  char tmpFilename[] = "/tmp/ganak_input_XXXXXX";
-  int fd = mkstemp(tmpFilename);  // Creates a unique temporary file
-  if (fd == -1)
-  {
-    perror("mkstemp");
-    exit(EXIT_FAILURE);
-  }
-
-  // Write CNF to the temporary file
-  write(fd, cnfContent.c_str(), cnfContent.size());
-  close(fd);  // Close the file descriptor
-
-  pid_t pid;
-
-  // Create a pipe for communication between parent and child
-  int toParent[2];
-  if (pipe(toParent) == -1)
-  {
-    perror("pipe");
-    exit(EXIT_FAILURE);
-  }
-
-  pid = fork();
-  if (pid == -1)
-  {
-    perror("fork");
-    exit(EXIT_FAILURE);
-  }
-
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "] counting for F formula using ganak" << endl;
-
-  if (pid == 0)
-  {  // Child process
-    // Redirect stdout to the write-end of the pipe
-    dup2(toParent[1], STDOUT_FILENO);
-    close(toParent[0]);  // Close the read-end as it's not used by the child
-    close(toParent[1]);  // Close the write-end after duplicating
-
-    // Execute ganak with the temporary file as input
-    execlp("./ganak", "./ganak", tmpFilename, (char*)NULL);
-    perror("execlp");  // execlp only returns on error
-    exit(EXIT_FAILURE);
-  }
-  else
-  {                      // Parent process
-    close(toParent[1]);  // Close the write-end as it's not used by the parent
-
-    // Read output from ganak
-    char buffer[128];
-    string ganakOutput;
-    ssize_t count;
-    while ((count = read(toParent[0], buffer, sizeof(buffer) - 1)) > 0)
-    {
-      buffer[count] = '\0';
-      ganakOutput += buffer;
-    }
-    close(toParent[0]);  // Close the read-end after reading
-
-    // Wait for child process to finish
-    waitpid(pid, NULL, 0);
-
-    // Parse ganakOutput to find the required number and store it in ganak_count
-    std::istringstream iss(ganakOutput);
-    string line;
-    bool ganak_count_line_found = false;
-    while (getline(iss, line))
-    {
-      if (line.rfind("c s exact arb int ", 0) == 0)
-      {  // Line starts with the pattern
-        string numberStr = line.substr(strlen("c s exact arb int "));
-        ganak_count.set_str(numberStr, 10);  // Set the value of ganak_count, 10
-                                             // is the base for decimal numbers
-        ganak_count_line_found = true;
-        break;
-      }
-    }
-    if (!ganak_count_line_found)
-    {
-      cout << "c [sklfc] ERROR: No Count line found from ganak" << endl;
-      exit(0);
-    }
-    if (ganak_count == 0)
-    {
-      cout << "c [sklfc] F is UNSAT. Est1 = 0" << endl;
-    }
-    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-         << (cpuTime() - start_time_skolemfc)
-         << "]  F formula has exact (projected) count: " << ganak_count << endl;
-    mpz_pow_ui(est0.get_mpz_t(),
-               mpz_class(2).get_mpz_t(),
-               skolemfc->p->forall_vars.size());
-    est0 -= ganak_count;
-    cout << "c [sklfc] Est0 = " << est0 << endl;
-
-    est0 *= skolemfc->p->exists_vars.size();  // TODO missing 2^n
-
-    est0 *= ganak_count;
-    cout << "c [sklfc] Est0 = " << est0 << endl;
-
-    // Remove the temporary file
-    unlink(tmpFilename);
-  }
-  return est0;
-}
-
-mpz_class SkolemFC::SklFC::get_est0_approxmc()
-{
-  mpz_class num_sol, est0;
-
-  ApproxMC::AppMC appmc;
-
-  appmc.new_vars(skolemfc->p->nVars());
-
-  for (auto& clause : skolemfc->p->clauses)
-  {
-    appmc.add_clause(clause);
-  }
-
-  appmc.set_projection_set(skolemfc->p->forall_vars);
-
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "] counting for F formula using ApproxMC. SkolemFC will not give any "
-          "guarantee on count!!"
-       << endl;
-
-  ApproxMC::SolCount c = appmc.count();
-
-  if (c.cellSolCount == 0)
-  {
-    cout << "c [sklfc] F is UNSAT. Est1 = 0" << endl;
-    okay = false;
-  }
-
-  mpz_pow_ui(est0.get_mpz_t(),
-             mpz_class(2).get_mpz_t(),
-             skolemfc->p->forall_vars.size());
-  mpz_pow_ui(
-      num_sol.get_mpz_t(), mpz_class(2).get_mpz_t(), c.hashCount);  // a^b
-
-  num_sol *= c.cellSolCount;
-  est0 -= num_sol;
-
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "]  F formula has approximated (projected) count: " << num_sol
-       << endl;
-
-  cout << "c [sklfc] Approximate Est0 = " << est0 << endl;
-
-  cout << "c [sklfc] Pass S2count: " << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc) << endl;
-
-  return est0;
-}
-
-mpz_class SkolemFC::SklFC::get_g_count_approxmc()
-{
-  mpz_class num_sol;
-  ApproxMC::SolCount c;
-  skolemfc->p->create_g_formula();
-
-  appmc_g.new_vars(skolemfc->p->nGVars());
-  for (auto& clause : skolemfc->p->g_formula_clauses)
-  {
-    appmc_g.add_clause(clause);
-  }
-  appmc_g.set_projection_set(skolemfc->p->forall_vars);
-
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc) << "] counting for G formula"
-       << endl;
-
-  c = appmc_g.count();
-
-  mpz_pow_ui(
-      num_sol.get_mpz_t(), mpz_class(2).get_mpz_t(), c.hashCount);  // a^b
-  num_sol *= c.cellSolCount;
-
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "] G formula has (projected) count: " << num_sol << endl;
-  if (num_sol == 0)
-  {
-    cout << "c [sklfc] G is UNSAT. Est1 = 0" << endl;
-    okay = false;
-  }
-  return num_sol;
-}
-
-mpz_class SkolemFC::SklFC::get_g_count_ganak()
-{
-  mpz_class ganak_count;  // Use mpz_class instead of mpz_t
-
-  skolemfc->p->create_g_formula();
-
-  std::stringstream ss;
-
-  ss << "p cnf " << skolemfc->p->nGVars() << " "
-     << skolemfc->p->g_formula_clauses.size() << endl;
-
-  ss << "c p show";
-  for (uint var : skolemfc->p->forall_vars)
-  {
-    ss << " " << var + 1;
-  }
-  ss << " 0" << endl;
-
-  for (const auto& clause : skolemfc->p->g_formula_clauses)
+  for (const auto& clause : clauses)
   {
     for (const Lit& lit : clause)
     {
@@ -919,10 +732,10 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
   ApproxMC::AppMC appmc;
   ArjunNS::Arjun arjun;
 
-  arjun.set_seed(123);
+  arjun.set_seed(seed);
   arjun.set_verbosity(0);
   arjun.set_simp(1);
-  arjun.new_vars(skolemfc->p->nVars());
+  arjun.new_vars(nvars);
 
   for (auto& clause : clauses) arjun.add_clause(clause);
 
@@ -989,63 +802,15 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   vector<vector<Lit>> sampling_formula =
       create_formula_from_sample(samples_from_unisamp, iteration);
 
-  ApproxMC::AppMC appmc;
-  ArjunNS::Arjun arjun;
-
-  arjun.set_seed(123);
-  arjun.set_verbosity(0);
-  arjun.set_simp(1);
-  arjun.new_vars(skolemfc->p->nVars());
-
-  for (auto& clause : sampling_formula) arjun.add_clause(clause);
-
-  vector<uint32_t> sampling_vars;
-  vector<uint32_t> empty_occ_sampl_vars;
-
-  arjun.start_with_clean_sampling_set();
-  empty_occ_sampl_vars = arjun.get_empty_occ_sampl_vars();
-  sampling_vars = arjun.get_indep_set();
-  const auto ret =
-      arjun.get_fully_simplified_renumbered_cnf(sampling_vars, false, true);
-
-  if (skolemfc->p->verbosity > 2)
-  {
-    cout << "c [sklfc->arjun] Arjun returned formula with " << ret.nvars
-         << " variables " << ret.cnf.size() << " clauses and "
-         << ret.sampling_vars.size() << " sized ind set" << endl;
-  }
-
-  appmc.new_vars(ret.nvars);
-  for (const auto& cl : ret.cnf) appmc.add_clause(cl);
-  sampling_vars = ret.sampling_vars;
-  uint32_t offset_count_by_2_pow = ret.empty_occs;
-  appmc.set_projection_set(sampling_vars);
-  appmc.set_pivot_by_sqrt2(0);
-  appmc.set_verbosity(0);
-
-  if (skolemfc->p->verbosity > 3)
-  {
-    vector<uint> projection_vars;
-    string tmpfile = print_cnf(nVars(), sampling_formula, projection_vars);
-    cout << "c [sklfc] CNF file strored in: " << tmpfile << endl;
-  }
-
-  appmc.set_delta(1.0 / (double)sample_num_est);
   ApproxMC::SolCount c;
-  if (!sampling_vars.empty())
-  {
-    appmc.set_projection_set(sampling_vars);
-    c = appmc.count();
-  }
-  else
-  {
-    c.hashCount = 0;
-    c.cellSolCount = 1;
-  }
-  //= appmc.count();
+  vector<uint> empty;
+  double _delta = 1.0 / (double)sample_num_est;
+  double _epsilon = 4.657;
 
-  double logcount_this_it =
-      (double)(c.hashCount + offset_count_by_2_pow) + log2(c.cellSolCount);
+  c = count_using_approxmc(
+      skolemfc->p->nVars(), sampling_formula, empty, _epsilon, _delta);
+
+  double logcount_this_it = (double)(c.hashCount) + log2(c.cellSolCount);
 
   iteration++;
   log_skolemcount += logcount_this_it;
@@ -1054,10 +819,18 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   {
     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
          << (cpuTime() - start_time_skolemfc) << "] logcount at iteration "
-         << iteration << ": " << c.cellSolCount << "* 2 **"
-         << c.hashCount + offset_count_by_2_pow << " " << logcount_this_it
-         << " log_skolemcount: " << log_skolemcount << endl;
+         << iteration << ": " << c.cellSolCount << "* 2 **" << c.hashCount
+         << " " << logcount_this_it << " log_skolemcount: " << log_skolemcount
+         << endl;
   }
+}
+
+mpz_class SkolemFC::SklFC::absolute_count_from_appmc(ApproxMC::SolCount c)
+{
+  mpz_class s1size;
+  mpz_pow_ui(s1size.get_mpz_t(), mpz_class(2).get_mpz_t(), c.hashCount);
+  s1size *= c.cellSolCount;
+  return s1size;
 }
 
 void SkolemFC::SklFC::count()
@@ -1068,10 +841,9 @@ void SkolemFC::SklFC::count()
 
   count = get_est0();
 
-  if (exactcount_s2)
-    s1size = get_g_count_ganak();
-  else
-    s1size = get_g_count_approxmc();
+  skolemfc->p->create_g_formula();
+
+  get_g_count();
 
   if (okay) get_sample_num_est();
 
@@ -1122,7 +894,7 @@ void SkolemFC::SklFC::set_g_counter_parameters(double _epsilon, double _delta)
   {
     double epsilon_ = skolemfc->p->epsilon;
     skolemfc->p->epsilon =
-        std::min(((1.0 - epsilon_) / (1 + epsilon_gc)),
+        std::min(((1.0 + epsilon_) / (1 + epsilon_gc) - 1),
                  (epsilon_ + epsilon_gc * epsilon_ - epsilon_gc));
     skolemfc->p->delta = (skolemfc->p->delta - delta_gc) / (1 + delta_gc);
   }

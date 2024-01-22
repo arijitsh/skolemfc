@@ -78,9 +78,7 @@ struct SklFC
                    vector<vector<Lit>> clauses,
                    vector<uint> projection_vars);
   mpz_class get_est0();
-  mpz_class get_est0_ganak();
-  mpz_class get_est0_approxmc();
-  void get_est0_gpmc();
+  mpz_class get_g_count();
   mpz_class get_g_count_approxmc();
   mpz_class get_g_count_ganak();
   void get_samples(uint64_t samples_needed = 0, int seed = 1);
@@ -94,6 +92,7 @@ struct SklFC
                                                  int sample_num);
   ApproxMC::SolCount count_using_approxmc(
       uint64_t, vector<vector<Lit>>, vector<uint>, double, double);
+  mpz_class absolute_count_from_appmc(ApproxMC::SolCount);
   mpz_class count_using_ganak(uint64_t, vector<vector<Lit>>, vector<uint>);
 
   void count();
