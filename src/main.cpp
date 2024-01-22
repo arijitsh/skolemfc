@@ -389,6 +389,9 @@ int main(int argc, char** argv)
 
   skolemfc->count();
 
+  cout << "c\nc ---- [ profiling ] "
+          "---------------------------------------------------------\nc\n";
+
   cout << "c [sklfc] finished T: " << std::setprecision(2) << std::fixed
        << (cpuTime() - starTime) << endl;
   cout << "c [sklfc] iterations: " << skolemfc->get_iteration() << endl;

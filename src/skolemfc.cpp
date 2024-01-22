@@ -107,7 +107,7 @@ void SkolemFC::SklFC::set_constants()
 
 bool SkolemFC::SklFC::show_count()
 {
-  if (skolemfc->p->verbosity <= 1)
+  if (skolemfc->p->verbosity < 1)
     return false;
   else if (iteration == next_iter_to_show_output)
   {
@@ -118,6 +118,17 @@ bool SkolemFC::SklFC::show_count()
     return true;
   }
   return false;
+}
+
+mpf_class SkolemFC::SklFC::get_current_estimate()
+{
+  return (log_skolemcount / (double)iteration) * (mpf_class)s2size;
+}
+
+double SkolemFC::SklFC::get_progress()
+{
+  mpf_class x = 100 * log_skolemcount / thresh;
+  return x.get_d();
 }
 
 // void SkolemFC::SklFC::get_est0_gpmc()
@@ -536,7 +547,13 @@ void SkolemFC::SklFC::get_sample_num_est()
        << "] Estimated count from each it: " << c.cellSolCount << " * 2 ** "
        << c.hashCount << endl;
 
-  sample_num_est = 1.0 * thresh / (c.hashCount + log2(c.cellSolCount));
+  int multisample = 500;
+
+  sample_num_est =
+      (((int)(thresh.get_d() / (c.hashCount + log2(c.cellSolCount)))
+        + multisample)
+       / multisample)
+      * multisample;
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
@@ -570,15 +587,15 @@ void SkolemFC::SklFC::get_samples_multithread(uint64_t samples_needed)
 
 void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
 {
-  {
-    // std::lock_guard<std::mutex> lock(cout_mutex);
-    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-         << (cpuTime() - start_time_skolemfc) << "] starting to get "
-         << samples_needed << " samples" << endl;
-  }
-  if (iteration < 10)
+  //{std::lock_guard<std::mutex> lock(cout_mutex); }
+
+  if (iteration < 2)
     cout << "c\nc ---- [ sampling ] "
             "----------------------------------------------------------\nc\n";
+
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << "] starting to get "
+       << samples_needed << " samples" << endl;
 
   auto ug_appmc = new ApproxMC::AppMC;
   auto unigen = new UniGen::UniG(ug_appmc);
@@ -661,8 +678,12 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
   unigen->sample(&c, samples_needed);
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc) << "] generated " << samples_needed
-       << " samples" << endl;
+       << (cpuTime() - start_time_skolemfc) << "] generated "
+       << samples_from_unisamp.size() << " samples" << endl;
+
+  if (iteration < 2)
+    cout << "c Pass Sampling: " << std::setprecision(2) << std::fixed
+         << (cpuTime() - start_time_skolemfc) << endl;
 }
 
 mpf_class SkolemFC::SklFC::get_est1(mpz_class s1size)
@@ -817,13 +838,20 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
 
 void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 {
-  if (iteration >= sample_num_est)
+  if (iteration >= samples_from_unisamp.size() && iteration > 1)
   {
     if (numthreads > 1)
       get_samples_multithread(sample_num_est * 0.25);
     else
-      get_samples(sample_num_est * 0.25);
-    sample_num_est += sample_num_est * 0.25;
+    {
+      int multisample = 500;
+      uint64_t new_total_sample_number =
+          (((thresh.get_d() / log_skolemcount.get_d() + multisample)
+            / multisample)
+           * multisample);
+      get_samples(new_total_sample_number - samples_from_unisamp.size());
+      sample_num_est = new_total_sample_number;
+    }
   }
 
   vector<vector<Lit>> sampling_formula =
@@ -844,11 +872,11 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 
   if (show_count())
   {
-    printf("c %10.2f %10lu %15.1f %15.1d \n",
+    printf("c %10.2f %10lu %15.1f %15.1f \n",
            (cpuTime() - start_time_skolemfc),
            iteration,
-           100.0,
-           10);
+           get_progress(),
+           get_current_estimate().get_d());
     //     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
     //          << (cpuTime() - start_time_skolemfc) << "] iteration:   " <<
     //          iteration
@@ -869,7 +897,6 @@ mpz_class SkolemFC::SklFC::absolute_count_from_appmc(ApproxMC::SolCount c)
 void SkolemFC::SklFC::count()
 {
   mpf_class count;
-  mpz_class s2size;
 
   set_constants();
 
@@ -904,6 +931,9 @@ void SkolemFC::SklFC::count()
     }
   }
   count += get_est1(s2size);
+
+  cout << "c\nc ---- [ result ] "
+          "------------------------------------------------------------\nc\n";
 
   cout << "s fc 2 ** " << count << endl;
 }

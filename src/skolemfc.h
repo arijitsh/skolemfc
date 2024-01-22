@@ -87,6 +87,8 @@ struct SklFC
   void get_and_add_count_multithred();
   void get_and_add_count_onethred(vector<vector<int>> samples);
   mpf_class get_est1(mpz_class s1size);
+  mpf_class get_current_estimate();
+  double get_progress();
   void get_sample_num_est();
   vector<vector<Lit>> create_formula_from_sample(vector<vector<int>> samples,
                                                  int sample_num);
@@ -113,7 +115,8 @@ struct SklFC
   std::mutex cout_mutex, vec_mutex, iter_mutex;
   uint64_t iteration = 0;
   mpf_class log_skolemcount = 0;
-  double thresh = 1;
+  mpf_class thresh = 1;
+  mpz_class s2size;
   uint numthreads;
   bool use_unisamp = false;
   bool exactcount_s0 = true;
