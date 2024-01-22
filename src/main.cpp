@@ -60,9 +60,10 @@ using namespace SkolemFC;
 
 po::options_description main_options = po::options_description("Main options");
 po::options_description help_options;
-po::options_description oracle_options = po::options_description("Oracle options");
-po::options_description hidden_options = po::options_description("Hidden options");
-
+po::options_description oracle_options =
+    po::options_description("Oracle options");
+po::options_description hidden_options =
+    po::options_description("Hidden options");
 
 po::variables_map vm;
 po::positional_options_description p;
@@ -135,42 +136,47 @@ void add_skolemfc_options()
           "d=0.2 means we are 80%% sure the count is within range as specified "
           "by epsilon. The lower, the higher confidence we have in the count.")(
           "log", po::value(&logfilename), "Logs of SkolemFC execution")(
-      "ignore-unsat",
-      po::bool_switch(&ignore_unsat_inputs)->default_value(ignore_unsat_inputs),
-      "Ignore those input variables for which there is no output");
+          "ignore-unsat",
+          po::bool_switch(&ignore_unsat_inputs)
+              ->default_value(ignore_unsat_inputs),
+          "Ignore those input variables for which there is no output");
 
   help_options.add(main_options);
 
-  hidden_options.add_options()
-    ("input", po::value<string>(), "file to read");
+  hidden_options.add_options()("input", po::value<string>(), "file to read");
 
-  oracle_options.add_options()
-  (
+  oracle_options.add_options()(
       "no-guarantee",
       po::bool_switch(&noguarantee)->default_value(noguarantee),
       "Run SkolemFC with better performance, but no theoretical guarantee")(
-      "use-unisamp", po::value(&use_unisamp_sampling)->default_value(use_unisamp_sampling), "Use UniSamp for high precision sampling")(
-      "exact-f", po::value(&exactcount_f)->default_value(exactcount_f), "Use Exact Counter to count size of set S0 / S1")(
-      "exact-g", po::value(&exactcount_g)->default_value(exactcount_g), "Use Exact Counter to count size of set S2")(
-          "epsilon-fc",
-          po::value(&epsilon_weightage_fc)->default_value(epsilon_weightage_fc, my_epsilon_weightage_fc.str()),
-          "Weightage of error allowed for function counter")(
-          "delta-fc",
-          po::value(&delta_weightage_fc)->default_value(delta_weightage_fc, my_delta_weightage_fc.str()),
-          "Weightage of Tolerance allowed for function counter")(
-          "delta-g",
-          po::value(&g_counter_delta)->default_value(g_counter_delta, my_g_counter_delta.str()),
-          "Tolerance for approximate counter counting size of S2")
-          (
-          "epsilon-g",
-          po::value(&g_counter_epsilon)->default_value(g_counter_epsilon, my_g_counter_epsilon.str()),
-          "Error for approximate counter counting size of S2");
+      "use-unisamp",
+      po::value(&use_unisamp_sampling)->default_value(use_unisamp_sampling),
+      "Use UniSamp for high precision sampling")(
+      "exact-f",
+      po::value(&exactcount_f)->default_value(exactcount_f),
+      "Use Exact Counter to count size of set S0 / S1")(
+      "exact-g",
+      po::value(&exactcount_g)->default_value(exactcount_g),
+      "Use Exact Counter to count size of set S2")(
+      "epsilon-fc",
+      po::value(&epsilon_weightage_fc)
+          ->default_value(epsilon_weightage_fc, my_epsilon_weightage_fc.str()),
+      "Weightage of error allowed for function counter")(
+      "delta-fc",
+      po::value(&delta_weightage_fc)
+          ->default_value(delta_weightage_fc, my_delta_weightage_fc.str()),
+      "Weightage of Tolerance allowed for function counter")(
+      "delta-g",
+      po::value(&g_counter_delta)
+          ->default_value(g_counter_delta, my_g_counter_delta.str()),
+      "Tolerance for approximate counter counting size of S2")(
+      "epsilon-g",
+      po::value(&g_counter_epsilon)
+          ->default_value(g_counter_epsilon, my_g_counter_epsilon.str()),
+      "Error for approximate counter counting size of S2");
 
-      help_options.add(oracle_options);
-      help_options.add(hidden_options);
-
-
-
+  help_options.add(oracle_options);
+  help_options.add(hidden_options);
 }
 
 void add_supported_options(int argc, char** argv)
