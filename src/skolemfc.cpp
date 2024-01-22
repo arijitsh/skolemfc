@@ -1007,7 +1007,7 @@ void SkolemFC::SklFC::count()
       get_and_add_count_for_a_sample();
     }
   }
-  count = get_est1(s1size);
+  count += get_est1(s1size);
 
   cout << "s fc 2 ** " << count << endl;
 }

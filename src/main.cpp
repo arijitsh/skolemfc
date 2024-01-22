@@ -60,15 +60,27 @@ using namespace SkolemFC;
 
 po::options_description main_options = po::options_description("Main options");
 po::options_description help_options;
+po::options_description oracle_options = po::options_description("Oracle options");
+po::options_description hidden_options = po::options_description("Hidden options");
+
+
 po::variables_map vm;
 po::positional_options_description p;
 double startTime;
 uint32_t verbosity = 1;
+bool ignore_unsat_inputs = false;
 bool noguarantee = false;
+uint32_t use_unisamp_sampling = 1;
+uint32_t exactcount_f = 1;
+uint32_t exactcount_g = 0;
 uint32_t seed = 0;
 uint32_t nthreads = 8;
 double epsilon = 0.8;
 double delta = 0.8;
+double g_counter_epsilon = 0.2;
+double g_counter_delta = 0.4;
+double epsilon_weightage_fc = 0.6;
+double delta_weightage_fc = 0.5;
 string logfilename;
 SkolemFC::SklFC* skolemfc = NULL;
 string elimtofile;
@@ -91,17 +103,19 @@ void add_skolemfc_options()
   std::ostringstream my_epsilon;
 
   std::ostringstream my_delta;
-  std::ostringstream my_var_elim_ratio;
+  std::ostringstream my_g_counter_epsilon;
+  std::ostringstream my_epsilon_weightage_fc;
+  std::ostringstream my_delta_weightage_fc;
+  std::ostringstream my_g_counter_delta;
 
   my_epsilon << std::setprecision(8) << epsilon;
-  my_delta << std::setprecision(8) << delta;
+  my_g_counter_epsilon << std::setprecision(8) << g_counter_epsilon;
+  my_epsilon_weightage_fc << std::setprecision(8) << epsilon_weightage_fc;
+  my_delta_weightage_fc << std::setprecision(8) << delta_weightage_fc;
+  my_g_counter_delta << std::setprecision(8) << g_counter_delta;
 
   main_options.add_options()("help,h", "Prints help")(
-      "input", po::value<string>(), "file to read")(
       "verb,v", po::value(&verbosity)->default_value(1), "verbosity")(
-      "noguarantee,n",
-      po::bool_switch(&noguarantee),
-      "Run SkolemFC with better performance, but no theoretical guarantee")(
       "seed,s", po::value(&seed)->default_value(seed), "Seed")(
       "threads,j",
       po::value(&nthreads)->default_value(1),
@@ -120,9 +134,43 @@ void add_skolemfc_options()
           "probability the count is within range as per epsilon parameter. So "
           "d=0.2 means we are 80%% sure the count is within range as specified "
           "by epsilon. The lower, the higher confidence we have in the count.")(
-          "log", po::value(&logfilename), "Logs of SkolemFC execution");
+          "log", po::value(&logfilename), "Logs of SkolemFC execution")(
+      "ignore-unsat",
+      po::bool_switch(&ignore_unsat_inputs)->default_value(ignore_unsat_inputs),
+      "Ignore those input variables for which there is no output");
 
   help_options.add(main_options);
+
+  hidden_options.add_options()
+    ("input", po::value<string>(), "file to read");
+
+  oracle_options.add_options()
+  (
+      "no-guarantee",
+      po::bool_switch(&noguarantee)->default_value(noguarantee),
+      "Run SkolemFC with better performance, but no theoretical guarantee")(
+      "use-unisamp", po::value(&use_unisamp_sampling)->default_value(use_unisamp_sampling), "Use UniSamp for high precision sampling")(
+      "exact-f", po::value(&exactcount_f)->default_value(exactcount_f), "Use Exact Counter to count size of set S0 / S1")(
+      "exact-g", po::value(&exactcount_g)->default_value(exactcount_g), "Use Exact Counter to count size of set S2")(
+          "epsilon-fc",
+          po::value(&epsilon_weightage_fc)->default_value(epsilon_weightage_fc, my_epsilon_weightage_fc.str()),
+          "Weightage of error allowed for function counter")(
+          "delta-fc",
+          po::value(&delta_weightage_fc)->default_value(delta_weightage_fc, my_delta_weightage_fc.str()),
+          "Weightage of Tolerance allowed for function counter")(
+          "delta-g",
+          po::value(&g_counter_delta)->default_value(g_counter_delta, my_g_counter_delta.str()),
+          "Tolerance for approximate counter counting size of S2")
+          (
+          "epsilon-g",
+          po::value(&g_counter_epsilon)->default_value(g_counter_epsilon, my_g_counter_epsilon.str()),
+          "Error for approximate counter counting size of S2");
+
+      help_options.add(oracle_options);
+      help_options.add(hidden_options);
+
+
+
 }
 
 void add_supported_options(int argc, char** argv)
