@@ -92,7 +92,7 @@ void SkolemFCInt::SklFCInt::print_formula(const vector<vector<Lit>>& formula)
   cout << "c Finished printing G formula" << endl;
 }
 
-bool SkolemFCInt::SklFCInt::create_g_formula()
+void SkolemFCInt::SklFCInt::create_g_formula()
 {
   g_formula_clauses.clear();
   std::vector<uint32_t> mapped_exists_vars(exists_vars.size());

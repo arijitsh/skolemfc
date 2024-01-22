@@ -102,7 +102,7 @@ struct SklFCInt
   void set_n_cls(uint32_t n_cls);
   const char* get_version_info() const;
   const char* get_compilation_env() const;
-  bool create_g_formula();
+  void create_g_formula();
   void print_formula(const vector<vector<Lit>>& formula);
 
   uint32_t nvars = 0;

@@ -372,19 +372,23 @@ int main(int argc, char** argv)
   const string inp = vm["input"].as<string>();
   readInAFile(inp);
 
+  // The ordering of setting oracles are interdependent
+  // Please do not change the order
+
+  skolemfc->set_oracles(use_unisamp_sampling, exactcount_f, exactcount_g);
+  skolemfc->set_g_counter_parameters(g_counter_epsilon, g_counter_delta);
+
   skolemfc->check_ready();
   skolemfc->set_num_threads(nthreads);
+  skolemfc->set_parameters();
+  skolemfc->set_ignore_unsat(ignore_unsat_inputs);
   skolemfc->set_dklr_parameters(epsilon_weightage_fc, delta_weightage_fc);
-
-  if (noguarantee)
-  {
-    skolemfc->use_appmc_for_esto();
-  }
 
   skolemfc->count();
 
   cout << "c [sklfc] finished T: " << std::setprecision(2) << std::fixed
        << (cpuTime() - starTime) << endl;
+  cout << "c [sklfc] iterations: " << skolemfc->get_iteration() << endl;
 
   delete skolemfc;
   return 0;

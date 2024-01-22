@@ -73,7 +73,6 @@ struct SklFC
 
   void check_ready();
   void set_num_threads(int nthreads) { numthreads = nthreads; }
-  void use_appmc_for_esto() { use_appmc_for_est0 = true; }
   void set_constants();
   string print_cnf(uint64_t num_clauses,
                    vector<vector<Lit>> clauses,
@@ -93,16 +92,21 @@ struct SklFC
   void get_sample_num_est();
   vector<vector<Lit>> create_formula_from_sample(vector<vector<int>> samples,
                                                  int sample_num);
+  ApproxMC::SolCount count_using_approxmc(
+      uint64_t, vector<vector<Lit>>, vector<uint>, double, double);
+  mpz_class count_using_ganak(uint64_t, vector<vector<Lit>>, vector<uint>);
 
   void count();
 
   bool show_count();
+  uint64_t get_iteration() { return iteration; }
 
   // Set config
   void set_parameters();
   void set_dklr_parameters(double, double);
   void set_oracles(bool, bool, bool);
-  void set_ignore_unsat(bool);
+  void set_g_counter_parameters(double, double);
+  void set_ignore_unsat(bool _ignore_unsat);
 
  private:
   SklFCPrivate* skolemfc = NULL;
@@ -112,10 +116,11 @@ struct SklFC
   mpf_class log_skolemcount = 0;
   double thresh = 1;
   uint numthreads;
-  bool use_appmc_for_est0 = false;
   bool use_unisamp = false;
   bool exactcount_s0 = true;
-  bool exactcount_s1 = false;
+  bool exactcount_s2 = false;
+  bool ignore_unsat = false;
+  double epsilon_gc = 0.2, delta_gc = 0.4;
   double epsilon = 0, delta = 0;
   double start_time_skolemfc, start_time_this;
   double epsilon_f, delta_f;

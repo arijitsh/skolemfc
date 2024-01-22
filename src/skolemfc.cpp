@@ -247,14 +247,19 @@ bool SkolemFC::SklFC::show_count()
 mpz_class SkolemFC::SklFC::get_est0()
 {
   mpz_class est0;
-  if (use_appmc_for_est0)
-  {
-    est0 = get_est0_approxmc();
-  }
-  else
-  {
+
+  if (ignore_unsat)
+    est0 = 0;
+
+  else if (exactcount_s0)
     est0 = get_est0_ganak();
-  }
+
+  else
+    est0 = get_est0_approxmc();
+
+  cout << "c [sklfc] Pass Est0: " << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << endl;
+
   return est0;
 }
 
@@ -482,6 +487,10 @@ mpz_class SkolemFC::SklFC::get_est0_approxmc()
        << endl;
 
   cout << "c [sklfc] Approximate Est0 = " << est0 << endl;
+
+  cout << "c [sklfc] Pass S2count: " << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << endl;
+
   return est0;
 }
 
@@ -643,6 +652,9 @@ mpz_class SkolemFC::SklFC::get_g_count_ganak()
     // Remove the temporary file
     unlink(tmpFilename);
   }
+  cout << "c [sklfc] Pass S2count: " << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc) << endl;
+
   return ganak_count;
 }
 
@@ -717,8 +729,11 @@ void SkolemFC::SklFC::get_sample_num_est()
   for (const auto& cl : ret.cnf) appmc.add_clause(cl);
   sampling_vars = ret.sampling_vars;
   uint32_t offset_count_by_2_pow = ret.empty_occs;
+
   appmc.set_projection_set(sampling_vars);
   appmc.set_verbosity(0);
+  appmc.set_pivot_by_sqrt2(1);
+  appmc.set_epsilon(4.657);
 
   ApproxMC::SolCount c;
   if (!sampling_vars.empty())
@@ -894,6 +909,72 @@ void SkolemFC::SklFC::get_and_add_count_multithred()
   }
 }
 
+ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
+    uint64_t nvars,
+    vector<vector<Lit>> clauses,
+    vector<uint> proj_vars,
+    double _epsilon,
+    double _delta)
+{
+  ApproxMC::AppMC appmc;
+  ArjunNS::Arjun arjun;
+
+  arjun.set_seed(123);
+  arjun.set_verbosity(0);
+  arjun.set_simp(1);
+  arjun.new_vars(skolemfc->p->nVars());
+
+  for (auto& clause : clauses) arjun.add_clause(clause);
+
+  vector<uint32_t> sampling_vars;
+  vector<uint32_t> empty_occ_sampl_vars;
+
+  if (proj_vars.empty())
+    arjun.start_with_clean_sampling_set();
+  else
+    arjun.set_starting_sampling_set(proj_vars);
+
+  empty_occ_sampl_vars = arjun.get_empty_occ_sampl_vars();
+  sampling_vars = arjun.get_indep_set();
+  const auto ret =
+      arjun.get_fully_simplified_renumbered_cnf(sampling_vars, false, true);
+
+  if (skolemfc->p->verbosity > 2)
+  {
+    cout << "c [sklfc->arjun] Arjun returned formula with " << ret.nvars
+         << " variables " << ret.cnf.size() << " clauses and "
+         << ret.sampling_vars.size() << " sized ind set" << endl;
+  }
+
+  appmc.new_vars(ret.nvars);
+  for (const auto& cl : ret.cnf) appmc.add_clause(cl);
+  sampling_vars = ret.sampling_vars;
+  uint32_t offset_count_by_2_pow = ret.empty_occs;
+  appmc.set_projection_set(sampling_vars);
+  appmc.set_epsilon(_epsilon);
+  appmc.set_delta(_delta);
+
+  if (_epsilon > 1) appmc.set_pivot_by_sqrt2(1);
+
+  appmc.set_verbosity(0);
+
+  appmc.set_delta(1.0 / (double)sample_num_est);
+  ApproxMC::SolCount c;
+  if (!sampling_vars.empty())
+  {
+    appmc.set_projection_set(sampling_vars);
+    c = appmc.count();
+  }
+  else
+  {
+    c.hashCount = 0;
+    c.cellSolCount = 1;
+  }
+  c.hashCount += offset_count_by_2_pow;
+
+  return c;
+}
+
 void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 {
   if (iteration >= sample_num_est)
@@ -986,7 +1067,11 @@ void SkolemFC::SklFC::count()
   set_constants();
 
   count = get_est0();
-  s1size = get_g_count_ganak();
+
+  if (exactcount_s2)
+    s1size = get_g_count_ganak();
+  else
+    s1size = get_g_count_approxmc();
 
   if (okay) get_sample_num_est();
 
@@ -1029,6 +1114,20 @@ void SkolemFC::SklFC::set_parameters()
   verb = skolemfc->p->verbosity;
 }
 
+void SkolemFC::SklFC::set_g_counter_parameters(double _epsilon, double _delta)
+{
+  epsilon_gc = _epsilon;
+  delta_gc = _delta;
+  if (!exactcount_s2)
+  {
+    double epsilon_ = skolemfc->p->epsilon;
+    skolemfc->p->epsilon =
+        std::min(((1.0 - epsilon_) / (1 + epsilon_gc)),
+                 (epsilon_ + epsilon_gc * epsilon_ - epsilon_gc));
+    skolemfc->p->delta = (skolemfc->p->delta - delta_gc) / (1 + delta_gc);
+  }
+}
+
 void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w, double delta_w)
 {
   assert(epsilon > 0);
@@ -1039,11 +1138,16 @@ void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w, double delta_w)
   epsilon_c = 4.658;
 }
 
-void SkolemFC::SklFC::set_oracles(bool use_unisamp_i,
-                                  bool exactcount_s0_i,
-                                  bool exactcount_s1_i)
+void SkolemFC::SklFC::set_oracles(bool _use_unisamp,
+                                  bool _exactcount_s0,
+                                  bool _exactcount_s2)
 {
-  use_unisamp = use_unisamp_i;
-  exactcount_s0 = exactcount_s0_i;
-  exactcount_s1 = exactcount_s1_i;
+  use_unisamp = _use_unisamp;
+  exactcount_s0 = _exactcount_s0;
+  exactcount_s2 = _exactcount_s2;
+}
+
+void SkolemFC::SklFC::set_ignore_unsat(bool _ignore_unsat)
+{
+  ignore_unsat = _ignore_unsat;
 }
