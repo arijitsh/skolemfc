@@ -53,13 +53,13 @@ struct SkolemFC::SklFCPrivate
   SkolemFCInt::SklFCInt* p = NULL;
 };
 
-SkolemFC::SklFC::SklFC(const double epsilon,
-                       const double delta,
-                       const uint32_t seed,
+SkolemFC::SklFC::SklFC(const double epsilon_i,
+                       const double delta_i,
+                       const uint32_t seed_i,
                        const uint32_t verbosity)
 {
   skolemfc = new SklFCPrivate(
-      new SkolemFCInt::SklFCInt(epsilon, delta, seed, verbosity));
+      new SkolemFCInt::SklFCInt(epsilon_i, delta_i, seed_i, verbosity));
 }
 SkolemFC::SklFC::~SklFC() { delete skolemfc; }
 
@@ -700,7 +700,7 @@ void SkolemFC::SklFC::get_sample_num_est()
   vector<uint32_t> sampling_vars;
   vector<uint32_t> empty_occ_sampl_vars;
 
-  uint32_t orig_sampling_set_size = arjun.start_with_clean_sampling_set();
+  arjun.start_with_clean_sampling_set();
   empty_occ_sampl_vars = arjun.get_empty_occ_sampl_vars();
   sampling_vars = arjun.get_indep_set();
   const auto ret =
@@ -767,7 +767,7 @@ void SkolemFC::SklFC::get_samples_multithread(uint64_t samples_needed)
   }
 }
 
-void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int seed)
+void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
 {
   {
     std::lock_guard<std::mutex> lock(cout_mutex);
@@ -782,7 +782,7 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int seed)
   ug_appmc->set_verbosity(0);
   //   ug_appmc->set_epsilon(0.414);
   //   ug_appmc->set_delta(0.1);
-  ug_appmc->set_seed(iteration * seed);
+  ug_appmc->set_seed(iteration * _seed);
   ug_appmc->new_vars(skolemfc->p->nGVars());
   ug_appmc->set_projection_set(skolemfc->p->forall_vars);
 
@@ -921,7 +921,7 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   vector<uint32_t> sampling_vars;
   vector<uint32_t> empty_occ_sampl_vars;
 
-  uint32_t orig_sampling_set_size = arjun.start_with_clean_sampling_set();
+  arjun.start_with_clean_sampling_set();
   empty_occ_sampl_vars = arjun.get_empty_occ_sampl_vars();
   sampling_vars = arjun.get_indep_set();
   const auto ret =
@@ -1021,29 +1021,29 @@ const char* SkolemFC::SklFC::get_compilation_env()
   return SkolemFCInt::get_compilation_env();
 }
 
-void SkolemFC::SklFC::set_verbosity(uint32_t verb_i) {
-  verb = verb_i;
-}
-
-void SkolemFC::SklFC::set_seed(uint32_t seed_i) {
-  seed = seed_i;
-}
-
-void SkolemFC::SklFC::set_parameters(double epsilon_i, double delta_i)
+void SkolemFC::SklFC::set_parameters()
 {
-  epsilon = epsilon_i;
-  delta = delta_i;
+  epsilon = skolemfc->p->epsilon;
+  delta = skolemfc->p->delta;
+  seed = skolemfc->p->seed;
+  verb = skolemfc->p->verbosity;
 }
 
 void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w, double delta_w)
 {
-  // Assert that epsilon and delta are set already
-  // Please call set_parameters before that
-
   assert(epsilon > 0);
   epsilon_f = epsilon * epsilon_w;
   delta_f = delta * delta_w;
   epsilon_s = epsilon - epsilon_f - 0.1;
   delta_c = delta - delta_f;
   epsilon_c = 4.658;
+}
+
+void SkolemFC::SklFC::set_oracles(bool use_unisamp_i,
+                                  bool exactcount_s0_i,
+                                  bool exactcount_s1_i)
+{
+  use_unisamp = use_unisamp_i;
+  exactcount_s0 = exactcount_s0_i;
+  exactcount_s1 = exactcount_s1_i;
 }

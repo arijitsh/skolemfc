@@ -108,6 +108,7 @@ struct SklFCInt
   uint32_t nvars = 0;
   uint32_t n_g_vars = 0;
   uint32_t n_cls_declared = 0;
+  uint32_t seed = 1;
   double epsilon;
   double delta;
   double thresh = 0;

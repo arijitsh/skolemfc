@@ -44,12 +44,13 @@ using namespace SkolemFCInt;
 
 SklFCInt::SklFCInt(const double _epsilon,
                    const double _delta,
-                   const uint32_t seed,
+                   const uint32_t _seed,
                    const uint32_t _verbosity)
 {
   epsilon = _epsilon;
   delta = _delta;
   verbosity = _verbosity;
+  seed = _seed;
 }
 
 SklFCInt::~SklFCInt() {}

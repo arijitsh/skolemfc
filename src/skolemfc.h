@@ -99,10 +99,10 @@ struct SklFC
   bool show_count();
 
   // Set config
-  void set_seed(uint32_t seed);
-  void set_verbosity(uint32_t verb);
-  void set_parameters(double, double );
-  void set_dklr_parameters(double, double );
+  void set_parameters();
+  void set_dklr_parameters(double, double);
+  void set_oracles(bool, bool, bool);
+  void set_ignore_unsat(bool);
 
  private:
   SklFCPrivate* skolemfc = NULL;
@@ -113,6 +113,9 @@ struct SklFC
   double thresh = 1;
   uint numthreads;
   bool use_appmc_for_est0 = false;
+  bool use_unisamp = false;
+  bool exactcount_s0 = true;
+  bool exactcount_s1 = false;
   double epsilon = 0, delta = 0;
   double start_time_skolemfc, start_time_this;
   double epsilon_f, delta_f;

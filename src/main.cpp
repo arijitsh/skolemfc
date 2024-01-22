@@ -193,9 +193,9 @@ void add_supported_options(int argc, char** argv)
               vm);
     if (vm.count("help"))
     {
-      cout << "Approximate Skolem Function counter" << endl;
+      cout << "Approximate Skolem Function Counter" << endl;
 
-      cout << "approxmc [options] inputfile" << endl << endl;
+      cout << "skolemfc [options] inputfile" << endl << endl;
 
       cout << help_options << endl;
       std::exit(0);
@@ -328,13 +328,6 @@ void readInAFile(const string& filename)
 #endif
 }
 
-void set_config(SkolemFC::SklFC* skl)
-{
-  cout << "c [skolemfc] using seed: " << seed << endl;
-  skl->set_verbosity(verbosity);
-  skl->set_seed(seed);
-}
-
 int main(int argc, char** argv)
 {
 // Die on division by zero etc.
@@ -381,6 +374,8 @@ int main(int argc, char** argv)
 
   skolemfc->check_ready();
   skolemfc->set_num_threads(nthreads);
+  skolemfc->set_dklr_parameters(epsilon_weightage_fc, delta_weightage_fc);
+
   if (noguarantee)
   {
     skolemfc->use_appmc_for_esto();
