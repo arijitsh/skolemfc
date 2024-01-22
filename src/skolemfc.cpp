@@ -26,6 +26,7 @@
 
 #include "skolemfc.h"
 
+#include <arjun/arjun.h>
 #include <gmpxx.h>
 #include <sys/wait.h>
 #include <threads.h>
@@ -255,6 +256,51 @@ mpz_class SkolemFC::SklFC::get_est0()
     est0 = get_est0_ganak();
   }
   return est0;
+}
+
+string SkolemFC::SklFC::print_cnf(uint64_t num_clauses,
+                                  vector<vector<Lit>> clauses,
+                                  vector<uint> projection_vars)
+{
+  string tempfile;
+  std::stringstream ss;
+
+  ss << "p cnf " << num_clauses << " " << clauses.size() << endl;
+  if (projection_vars.size() > 0)
+  {
+    ss << "c p show";
+    for (uint var : projection_vars)
+    {
+      ss << " " << var + 1;
+    }
+    ss << " 0" << endl;
+  }
+  for (const auto& clause : clauses)
+  {
+    for (const Lit& lit : clause)
+    {
+      ss << lit << " ";
+    }
+    ss << "0" << endl;
+  }
+
+  string cnfContent = ss.str();
+
+  // Create a temporary file
+  char tmpFilename[] = "/tmp/ganak_input_XXXXXX";
+  tempfile = (string)tmpFilename;
+  int fd = mkstemp(tmpFilename);  // Creates a unique temporary file
+  if (fd == -1)
+  {
+    perror("mkstemp");
+    exit(EXIT_FAILURE);
+  }
+
+  // Write CNF to the temporary file
+  write(fd, cnfContent.c_str(), cnfContent.size());
+  close(fd);  // Close the file descriptor
+
+  return tempfile;
 }
 
 mpz_class SkolemFC::SklFC::get_est0_ganak()
@@ -645,14 +691,13 @@ void SkolemFC::SklFC::get_sample_num_est()
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] Running ApproxMC to estimate number of samples needed" << endl;
-  //   ApproxMC::SolCount c = apmc.count();
-  //   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-  //        << (cpuTime() - start_time_skolemfc)
-  //        << "] Estimated count from each it: " << c.cellSolCount << " * 2 **
-  //        "
-  //        << c.hashCount << endl;
-  //   sample_num_est = 1.0 * thresh / (c.hashCount + log2(c.cellSolCount));
-  sample_num_est = 1320;
+  ApproxMC::SolCount c = apmc.count();
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "] Estimated count from each it: " << c.cellSolCount << " * 2 ** "
+       << c.hashCount << endl;
+  sample_num_est = 1.0 * thresh / (c.hashCount + log2(c.cellSolCount));
+  //  sample_num_est = 1320;
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] approximated number of iterations: " << sample_num_est << endl;
@@ -822,19 +867,62 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
       create_formula_from_sample(samples_from_unisamp, iteration);
 
   ApproxMC::AppMC appmc;
-  appmc.new_vars(skolemfc->p->nVars());
+  ArjunNS::Arjun arjun;
 
-  for (auto& clause : sampling_formula)
+  arjun.set_seed(123);
+  arjun.set_verbosity(0);
+  arjun.set_simp(1);
+  arjun.new_vars(skolemfc->p->nVars());
+
+  for (auto& clause : sampling_formula) arjun.add_clause(clause);
+
+  vector<uint32_t> sampling_vars;
+  vector<uint32_t> empty_occ_sampl_vars;
+
+  uint32_t orig_sampling_set_size = arjun.start_with_clean_sampling_set();
+  empty_occ_sampl_vars = arjun.get_empty_occ_sampl_vars();
+  sampling_vars = arjun.get_indep_set();
+  const auto ret =
+      arjun.get_fully_simplified_renumbered_cnf(sampling_vars, false, true);
+
+  if (skolemfc->p->verbosity > 2)
   {
-    appmc.add_clause(clause);
+    cout << "c [sklfc->arjun] Arjun returned formula with " << ret.nvars
+         << " variables " << ret.cnf.size() << " clauses and "
+         << ret.sampling_vars.size() << " sized ind set" << endl;
   }
-  //   appmc.set_pivot_by_sqrt2(0);
 
+  appmc.new_vars(ret.nvars);
+  for (const auto& cl : ret.cnf) appmc.add_clause(cl);
+  sampling_vars = ret.sampling_vars;
+  uint32_t offset_count_by_2_pow = ret.empty_occs;
+  appmc.set_projection_set(sampling_vars);
+  appmc.set_pivot_by_sqrt2(0);
   appmc.set_verbosity(0);
-  //   appmc.set_delta(1.0/(double)sample_num_est);
-  ApproxMC::SolCount c = appmc.count();
 
-  double logcount_this_it = (double)c.hashCount + log2(c.cellSolCount);
+  if (skolemfc->p->verbosity > 3)
+  {
+    vector<uint> projection_vars;
+    string tmpfile = print_cnf(nVars(), sampling_formula, projection_vars);
+    cout << "c [sklfc] CNF file strored in: " << tmpfile << endl;
+  }
+
+  appmc.set_delta(1.0 / (double)sample_num_est);
+  ApproxMC::SolCount c;
+  if (!sampling_vars.empty())
+  {
+    appmc.set_projection_set(sampling_vars);
+    c = appmc.count();
+  }
+  else
+  {
+    c.hashCount = 0;
+    c.cellSolCount = 1;
+  }
+  //= appmc.count();
+
+  double logcount_this_it =
+      (double)(c.hashCount + offset_count_by_2_pow) + log2(c.cellSolCount);
 
   iteration++;
   log_skolemcount += logcount_this_it;
@@ -843,9 +931,9 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
   {
     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
          << (cpuTime() - start_time_skolemfc) << "] logcount at iteration "
-         << iteration << ": " << c.cellSolCount << "* 2 **" << c.hashCount
-         << " " << logcount_this_it << " log_skolemcount: " << log_skolemcount
-         << endl;
+         << iteration << ": " << c.cellSolCount << "* 2 **"
+         << c.hashCount + offset_count_by_2_pow << " " << logcount_this_it
+         << " log_skolemcount: " << log_skolemcount << endl;
   }
 }
 

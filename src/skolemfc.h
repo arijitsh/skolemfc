@@ -45,6 +45,7 @@
 #include <thread>
 
 using CMSat::Lit;
+using std::string;
 using std::vector;
 
 namespace SkolemFC {
@@ -74,6 +75,9 @@ struct SklFC
   void set_num_threads(int nthreads) { numthreads = nthreads; }
   void use_appmc_for_esto() { use_appmc_for_est0 = true; }
   void set_constants();
+  string print_cnf(uint64_t num_clauses,
+                   vector<vector<Lit>> clauses,
+                   vector<uint> projection_vars);
   mpz_class get_est0();
   mpz_class get_est0_ganak();
   mpz_class get_est0_approxmc();
