@@ -651,29 +651,28 @@ void SkolemFC::SklFC::get_sample_num_est()
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] estimating number of samples needed" << endl;
+
   CMSat::SATSolver cms;
-  ApproxMC::AppMC apmc;
-  vector<Lit> new_clause;
+  ApproxMC::AppMC appmc;
+  ArjunNS::Arjun arjun;
+
+  arjun.set_seed(123);
+  arjun.set_verbosity(0);
+  arjun.set_simp(1);
+
+  arjun.new_vars(skolemfc->p->nGVars());
   cms.new_vars(skolemfc->p->nGVars());
-  apmc.new_vars(skolemfc->p->nVars());
+
   for (auto& clause : skolemfc->p->g_formula_clauses)
   {
+    arjun.add_clause(clause);
     cms.add_clause(clause);
   }
-  auto res = cms.solve();
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "] got a solution by CMS for estimating, now counting that" << endl;
-  if (res == CMSat::l_False)
-  {
-    cout << "c Unsat G" << endl;
-  }
 
-  for (auto& clause : skolemfc->p->clauses)
-  {
-    apmc.add_clause(clause);
-  }
+  auto res = cms.solve();
   vector<lbool> model = cms.get_model();
+  vector<Lit> new_clause;
+
   for (auto var : skolemfc->p->forall_vars)
   {
     new_clause.clear();
@@ -686,17 +685,60 @@ void SkolemFC::SklFC::get_sample_num_est()
       assert(model[var] == CMSat::l_False);
       new_clause.push_back(Lit(var, true));
     }
-    apmc.add_clause(new_clause);
+    arjun.add_clause(new_clause);
   }
+
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
-       << "] Running ApproxMC to estimate number of samples needed" << endl;
-  ApproxMC::SolCount c = apmc.count();
+       << "] got a solution by CMS for estimating, now counting that" << endl;
+
+  if (res == CMSat::l_False)
+  {
+    cout << "c Unsat G" << endl;
+  }
+
+  vector<uint32_t> sampling_vars;
+  vector<uint32_t> empty_occ_sampl_vars;
+
+  uint32_t orig_sampling_set_size = arjun.start_with_clean_sampling_set();
+  empty_occ_sampl_vars = arjun.get_empty_occ_sampl_vars();
+  sampling_vars = arjun.get_indep_set();
+  const auto ret =
+      arjun.get_fully_simplified_renumbered_cnf(sampling_vars, false, true);
+
+  if (skolemfc->p->verbosity > 1)
+  {
+    cout << "c [sklfc->arjun] Arjun returned formula with " << ret.nvars
+         << " variables " << ret.cnf.size() << " clauses and "
+         << ret.sampling_vars.size() << " sized ind set" << endl;
+  }
+
+  appmc.new_vars(ret.nvars);
+  for (const auto& cl : ret.cnf) appmc.add_clause(cl);
+  sampling_vars = ret.sampling_vars;
+  uint32_t offset_count_by_2_pow = ret.empty_occs;
+  appmc.set_projection_set(sampling_vars);
+  appmc.set_verbosity(0);
+
+  ApproxMC::SolCount c;
+  if (!sampling_vars.empty())
+  {
+    appmc.set_projection_set(sampling_vars);
+    c = appmc.count();
+  }
+  else
+  {
+    c.hashCount = 0;
+    c.cellSolCount = 1;
+  }
+
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] Estimated count from each it: " << c.cellSolCount << " * 2 ** "
-       << c.hashCount << endl;
-  sample_num_est = 1.0 * thresh / (c.hashCount + log2(c.cellSolCount));
+       << c.hashCount + offset_count_by_2_pow << endl;
+  sample_num_est =
+      1.0 * thresh
+      / (c.hashCount + offset_count_by_2_pow + log2(c.cellSolCount));
   //  sample_num_est = 1320;
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
