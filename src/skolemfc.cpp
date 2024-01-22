@@ -90,6 +90,9 @@ void SkolemFC::SklFC::set_constants()
   epsilon = skolemfc->p->epsilon;
   delta = skolemfc->p->delta;
 
+  cout << "c\nc ---- [ estimating ] "
+          "--------------------------------------------------------\nc\n";
+
   cout << "c [sklfc] running with epsilon: " << epsilon
        << " and delta: " << delta << endl;
 
@@ -253,17 +256,17 @@ mpz_class SkolemFC::SklFC::get_est0()
              skolemfc->p->forall_vars.size());
 
   if (ignore_unsat)
-    est0 = 0;
+    return 0;
 
   else if (exactcount_s0)
   {
-    cout << "c [sklfc] Employing Ganak to count G formula" << endl;
+    cout << "c [sklfc] Employing Ganak to count F formula" << endl;
     est0 -= count_using_ganak(
         skolemfc->p->nVars(), skolemfc->p->clauses, skolemfc->p->forall_vars);
   }
   else
   {
-    cout << "c [sklfc] Employing ApproxMC to count G formula" << endl;
+    cout << "c [sklfc] Employing ApproxMC to count F formula" << endl;
     ApproxMC::SolCount c;
     c = count_using_approxmc(skolemfc->p->nVars(),
                              skolemfc->p->clauses,
@@ -568,36 +571,92 @@ void SkolemFC::SklFC::get_samples_multithread(uint64_t samples_needed)
 void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
 {
   {
-    std::lock_guard<std::mutex> lock(cout_mutex);
+    // std::lock_guard<std::mutex> lock(cout_mutex);
     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
          << (cpuTime() - start_time_skolemfc) << "] starting to get "
          << samples_needed << " samples" << endl;
   }
+  if (iteration < 10)
+    cout << "c\nc ---- [ sampling ] "
+            "----------------------------------------------------------\nc\n";
 
   auto ug_appmc = new ApproxMC::AppMC;
   auto unigen = new UniGen::UniG(ug_appmc);
+  ArjunNS::Arjun* arjun = new ArjunNS::Arjun;
+
+  vector<uint32_t> empty_occ_sampl_vars;
+  vector<uint32_t> sampling_vars_orig;
 
   ug_appmc->set_verbosity(0);
-  //   ug_appmc->set_epsilon(0.414);
-  //   ug_appmc->set_delta(0.1);
   ug_appmc->set_seed(iteration * _seed);
-  ug_appmc->new_vars(skolemfc->p->nGVars());
-  ug_appmc->set_projection_set(skolemfc->p->forall_vars);
+
+  ug_appmc->set_detach_xors(1);
+  ug_appmc->set_reuse_models(1);
+  ug_appmc->set_sparse(1);
+  ug_appmc->set_simplify(1);
 
   unigen->set_verbosity(0);
-  //   unigen->set_unisamp(1);
-  //   unigen->set_unisamp_epsilon(0.2);
+
+  if (use_unisamp)
+  {
+    unigen->set_unisamp(1);
+    unigen->set_unisamp_epsilon(epsilon_s);
+    ug_appmc->set_epsilon(0.414);
+    ug_appmc->set_delta(0.1);
+  }
+
+  arjun->set_seed(seed);
+  arjun->set_verbosity(0);
+  arjun->new_vars(skolemfc->p->nGVars());
+
+  for (auto& clause : skolemfc->p->g_formula_clauses)
+  {
+    arjun->add_clause(clause);
+  }
+  arjun->set_starting_sampling_set(skolemfc->p->forall_vars);
+  sampling_vars_orig = skolemfc->p->forall_vars;
+  bool ret = true;
+  const uint32_t orig_num_vars = arjun->get_orig_num_vars();
+  ug_appmc->new_vars(orig_num_vars);
+  arjun->start_getting_small_clauses(std::numeric_limits<uint32_t>::max(),
+                                     std::numeric_limits<uint32_t>::max(),
+                                     false);
+  vector<Lit> clause;
+  while (ret)
+  {
+    ret = arjun->get_next_small_clause(clause);
+    if (!ret)
+    {
+      break;
+    }
+
+    bool ok = true;
+    for (auto l : clause)
+    {
+      if (l.var() >= orig_num_vars)
+      {
+        ok = false;
+        break;
+      }
+    }
+
+    if (ok)
+    {
+      ug_appmc->add_clause(clause);
+    }
+  }
+  arjun->end_getting_small_clauses();
+  vector<uint32_t> sampling_vars = arjun->get_indep_set();
+  delete arjun;
+
   unigen->set_callback([this](const vector<int>& solution,
                               void*) { this->unigen_callback(solution, NULL); },
                        NULL);
 
-  for (auto& clause : skolemfc->p->g_formula_clauses)
-  {
-    ug_appmc->add_clause(clause);
-  }
+  ug_appmc->set_projection_set(sampling_vars);
 
   ApproxMC::SolCount c = ug_appmc->count();
-
+  unigen->set_verb_sampler_cls(0);
   unigen->set_full_sampling_vars(skolemfc->p->forall_vars);
   unigen->sample(&c, samples_needed);
 
@@ -785,10 +844,17 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 
   if (show_count())
   {
-    cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-         << (cpuTime() - start_time_skolemfc) << "] iteration:   " << iteration
-         << " [mc " << c.cellSolCount << " * 2 ** " << c.hashCount << " ]"
-         << endl;
+    printf("c %10.2f %10lu %15.1f %15.1d \n",
+           (cpuTime() - start_time_skolemfc),
+           iteration,
+           100.0,
+           10);
+    //     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+    //          << (cpuTime() - start_time_skolemfc) << "] iteration:   " <<
+    //          iteration
+    //          << " [mc " << c.cellSolCount << " * 2 ** " << c.hashCount << "
+    //          ]"
+    //          << endl;
   }
 }
 
@@ -826,6 +892,11 @@ void SkolemFC::SklFC::count()
     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
          << (cpuTime() - start_time_skolemfc)
          << "] Starting to get count for each assignment" << endl;
+
+    cout << "c\nc ---- [ counting ] "
+            "----------------------------------------------------------\nc\n";
+    cout << "c\nc   seconds    iterations      progress         estimate      "
+            "modelcount \nc\n";
 
     while ((log_skolemcount <= thresh) && okay)
     {

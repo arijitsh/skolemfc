@@ -349,9 +349,12 @@ int main(int argc, char** argv)
 
   skolemfc = new SkolemFC::SklFC(epsilon, delta, seed, verbosity);
 
+  cout << "c\nc ---- [ banner ] "
+          "------------------------------------------------------------\nc\n";
+
   cout << "c [sklfc] SkolemFC Version: " << skolemfc->get_version_info()
        << endl;
-  if (verbosity >= 2)
+  if (verbosity >= 3)
   {
     cout << "c [sklfc] compilation environment: "
          << skolemfc->get_compilation_env() << endl;

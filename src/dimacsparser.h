@@ -315,6 +315,9 @@ bool DimacsParser<C, S>::parse_and_add_clause(C& in)
 template <class C, class S>
 bool DimacsParser<C, S>::parse_DIMACS_main(C& in)
 {
+  cout << "c\nc ---- [ parsing ] "
+          "-----------------------------------------------------------\nc\n";
+
   std::string str;
 
   for (;;)
