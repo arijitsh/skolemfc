@@ -388,13 +388,14 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
   std::stringstream ss;
 
   ss << "p cnf " << nvars << " " << clauses.size() << endl;
-  if (projection.size() > 0){
-  ss << "c p show";
-  for (uint var : projection)
+  if (projection.size() > 0)
   {
-    ss << " " << var + 1;
-  }
-  ss << " 0" << endl;
+    ss << "c p show";
+    for (uint var : projection)
+    {
+      ss << " " << var + 1;
+    }
+    ss << " 0" << endl;
   }
   for (const auto& clause : clauses)
   {
@@ -455,7 +456,7 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
   }
   else
   {  // Parent process
-//     if (timeout > 0) alarm(timeout);
+     //     if (timeout > 0) alarm(timeout);
     ganak_timeout = false;
     int status;
     close(toParent[1]);  // Close the write-end as it's not used by the parent
@@ -473,7 +474,6 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
 
     // Wait for child process to finish
     waitpid(pid, &status, 0);
-
 
     // Parse ganakOutput to find the required number and store it in ganak_count
     std::istringstream iss(ganakOutput);
@@ -499,8 +499,7 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
     {
       cout << "c [sklfc] G is UNSAT. Est1 = 0" << endl;
     }
-    if (verb >=2)
-      cout << "c Ganak Count " << ganak_count << endl;
+    if (verb >= 2) cout << "c Ganak Count " << ganak_count << endl;
     // Remove the temporary file
     unlink(tmpFilename);
   }
@@ -510,9 +509,10 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
 
 void SkolemFC::SklFC::get_sample_num_est()
 {
-  if (static_samp){
-      sample_num_est = 500;
-  return;
+  if (static_samp)
+  {
+    sample_num_est = 500;
+    return;
   }
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
@@ -561,10 +561,10 @@ void SkolemFC::SklFC::get_sample_num_est()
        << "] got a solution by CMS for estimating, now counting that" << endl;
 
   ApproxMC::SolCount c;
-  c = log_count_from_absolute(
-      count_using_ganak(skolemfc->p->nGVars(), clauses, empty, 0));
-  if (c.cellSolCount == 0 )
-    c = count_using_approxmc(skolemfc->p->nGVars(), clauses, empty, 4.66, 0.7);
+  //   c = log_count_from_absolute(
+  //       count_using_ganak(skolemfc->p->nGVars(), clauses, empty, 0));
+  //   if (c.cellSolCount == 0 )
+  c = count_using_approxmc(skolemfc->p->nGVars(), clauses, empty, 4.66, 0.7);
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
