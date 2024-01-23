@@ -148,6 +148,7 @@ struct SklFC
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);
   vector<vector<int>> samples_from_unisamp;
+  uint32_t sample_clearance_iteration = 0;
   bool ganak_timeout;
 };
 

@@ -592,6 +592,9 @@ void SkolemFC::SklFC::get_sample_num_est()
 void SkolemFC::SklFC::unigen_callback(const vector<int>& solution, void*)
 {
   // std::lock_guard<std::mutex> lock(vec_mutex);
+  if (verb > 2)
+    cout << "c Generated Sample size now:" << samples_from_unisamp.size()
+         << endl;
   samples_from_unisamp.push_back(solution);
 }
 
@@ -622,15 +625,15 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
 
   int oracle_verb = std::max(0, (int)verb - 2);
 
-  auto ug_appmc = new ApproxMC::AppMC;
-  auto unigen = new UniGen::UniG(ug_appmc);
+  ApproxMC::AppMC* ug_appmc = new ApproxMC::AppMC;
+  UniGen::UniG* unigen = new UniGen::UniG(ug_appmc);
   ArjunNS::Arjun* arjun = new ArjunNS::Arjun;
 
   vector<uint32_t> empty_occ_sampl_vars;
   vector<uint32_t> sampling_vars_orig;
 
   ug_appmc->set_verbosity(oracle_verb);
-  ug_appmc->set_seed(iteration * _seed);
+  ug_appmc->set_seed(iteration);
 
   ug_appmc->set_detach_xors(1);
   ug_appmc->set_reuse_models(1);
@@ -702,6 +705,9 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
   unigen->set_full_sampling_vars(skolemfc->p->forall_vars);
   unigen->sample(&c, samples_needed);
 
+  delete unigen;
+  delete ug_appmc;
+
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc) << "] generated "
        << samples_from_unisamp.size() << " samples" << endl;
@@ -721,7 +727,7 @@ vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(
 {
   vector<vector<Lit>> formula = skolemfc->p->clauses;
   vector<Lit> new_clause;
-  for (auto int_lit : samples[sample_num])
+  for (auto int_lit : samples[sample_num - sample_clearance_iteration])
   {
     bool isNegated = int_lit < 0;
     uint32_t varIndex =
@@ -875,7 +881,8 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
 
 void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 {
-  if (iteration >= samples_from_unisamp.size() && iteration > 1)
+  if (iteration >= samples_from_unisamp.size() + sample_clearance_iteration
+      && iteration > 1)
   {
     if (numthreads > 1)
       get_samples_multithread(sample_num_est * 0.25);
@@ -898,8 +905,11 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
           (((thresh.get_d() * iteration / log_skolemcount.get_d() + multisample)
             / multisample)
            * multisample);
-      get_samples(new_total_sample_number - samples_from_unisamp.size());
       sample_num_est = new_total_sample_number;
+      if (new_total_sample_number > 1000) new_total_sample_number = 1000;
+      samples_from_unisamp.clear();
+      sample_clearance_iteration = iteration;
+      get_samples(new_total_sample_number, seed);
     }
   }
 
