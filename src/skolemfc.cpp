@@ -287,8 +287,12 @@ mpz_class SkolemFC::SklFC::get_est0()
     est0 -= absolute_count_from_appmc(c);
   }
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "]  F formula has (projected) count: " << est0 << endl;
+       << (cpuTime() - start_time_skolemfc) << "]  Size of set S0: " << est0
+       << endl;
+
+  est0 *= skolemfc->p->exists_vars.size();
+
+  cout << "c [sklfc] Value for Est0: " << est0 << endl;
 
   cout << "c Pass Est0: " << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc) << endl;
@@ -549,15 +553,17 @@ void SkolemFC::SklFC::get_sample_num_est()
 
   int multisample = 500;
 
+  sample_num_est = (int)(thresh.get_d() / (c.hashCount + log2(c.cellSolCount)));
+
+  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
+       << (cpuTime() - start_time_skolemfc)
+       << "] approximated number of iterations: " << sample_num_est << endl;
+
   sample_num_est =
       (((int)(thresh.get_d() / (c.hashCount + log2(c.cellSolCount)))
         + multisample)
        / multisample)
       * multisample;
-
-  cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "] approximated number of iterations: " << sample_num_est << endl;
 
   cout << "c Pass SizeEst: " << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc) << endl;
@@ -717,13 +723,13 @@ void SkolemFC::SklFC::get_and_add_count_onethred(vector<vector<int>> samples)
   {
     vector<vector<Lit>> sampling_formula =
         create_formula_from_sample(samples, it);
-    ApproxMC::AppMC appmc;
-    appmc.new_vars(skolemfc->p->nVars());
+    ApproxMC::AppMC* appmc = new ApproxMC::AppMC;
+    appmc->new_vars(skolemfc->p->nVars());
     for (auto& clause : sampling_formula)
     {
-      appmc.add_clause(clause);
+      appmc->add_clause(clause);
     }
-    ApproxMC::SolCount c = appmc.count();
+    ApproxMC::SolCount c = appmc->count();
     double logcount_this_it = (double)c.hashCount + log2(c.cellSolCount);
     {
       std::lock_guard<std::mutex> lock(iter_mutex);
@@ -778,28 +784,28 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
     double _epsilon,
     double _delta)
 {
-  ApproxMC::AppMC appmc;
-  ArjunNS::Arjun arjun;
+  ApproxMC::AppMC* appmc = new ApproxMC::AppMC;
+  ArjunNS::Arjun* arjun = new ArjunNS::Arjun;
 
-  arjun.set_seed(seed);
-  arjun.set_verbosity(0);
-  arjun.set_simp(1);
-  arjun.new_vars(nvars);
+  arjun->set_seed(seed);
+  arjun->set_verbosity(0);
+  arjun->set_simp(1);
+  arjun->new_vars(nvars);
 
-  for (auto& clause : clauses) arjun.add_clause(clause);
+  for (auto& clause : clauses) arjun->add_clause(clause);
 
   vector<uint32_t> sampling_vars;
   vector<uint32_t> empty_occ_sampl_vars;
 
   if (proj_vars.empty())
-    arjun.start_with_clean_sampling_set();
+    arjun->start_with_clean_sampling_set();
   else
-    arjun.set_starting_sampling_set(proj_vars);
+    arjun->set_starting_sampling_set(proj_vars);
 
-  empty_occ_sampl_vars = arjun.get_empty_occ_sampl_vars();
-  sampling_vars = arjun.get_indep_set();
+  empty_occ_sampl_vars = arjun->get_empty_occ_sampl_vars();
+  sampling_vars = arjun->get_indep_set();
   const auto ret =
-      arjun.get_fully_simplified_renumbered_cnf(sampling_vars, false, true);
+      arjun->get_fully_simplified_renumbered_cnf(sampling_vars, false, true);
 
   if (skolemfc->p->verbosity > 2)
   {
@@ -808,23 +814,23 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
          << ret.sampling_vars.size() << " sized ind set" << endl;
   }
 
-  appmc.new_vars(ret.nvars);
-  for (const auto& cl : ret.cnf) appmc.add_clause(cl);
+  appmc->new_vars(ret.nvars);
+  for (const auto& cl : ret.cnf) appmc->add_clause(cl);
   sampling_vars = ret.sampling_vars;
   uint32_t offset_count_by_2_pow = ret.empty_occs;
-  appmc.set_projection_set(sampling_vars);
-  appmc.set_epsilon(_epsilon);
-  appmc.set_delta(_delta);
+  appmc->set_projection_set(sampling_vars);
+  appmc->set_epsilon(_epsilon);
+  appmc->set_delta(_delta);
 
-  if (_epsilon > 1) appmc.set_pivot_by_sqrt2(1);
+  if (_epsilon > 1) appmc->set_pivot_by_sqrt2(1);
 
-  appmc.set_verbosity(0);
+  appmc->set_verbosity(0);
 
   ApproxMC::SolCount c;
   if (!sampling_vars.empty())
   {
-    appmc.set_projection_set(sampling_vars);
-    c = appmc.count();
+    appmc->set_projection_set(sampling_vars);
+    c = appmc->count();
   }
   else
   {
@@ -832,6 +838,9 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
     c.cellSolCount = 1;
   }
   c.hashCount += offset_count_by_2_pow;
+
+  delete arjun;
+  delete appmc;
 
   return c;
 }
@@ -845,8 +854,20 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
     else
     {
       int multisample = 500;
+      if (verb > 1)
+      {
+        cout << "c last sampling generated " << samples_from_unisamp.size()
+             << " samples. but we need more" << endl;
+        cout << "c current estimated number of iterations: "
+             << (thresh.get_d() * iteration / log_skolemcount.get_d()) << endl;
+        cout << "c asking unisamp to generate: "
+             << (uint64_t)((thresh.get_d() * iteration
+                            / log_skolemcount.get_d())
+                           - samples_from_unisamp.size())
+             << endl;
+      }
       uint64_t new_total_sample_number =
-          (((thresh.get_d() / log_skolemcount.get_d() + multisample)
+          (((thresh.get_d() * iteration / log_skolemcount.get_d() + multisample)
             / multisample)
            * multisample);
       get_samples(new_total_sample_number - samples_from_unisamp.size());
