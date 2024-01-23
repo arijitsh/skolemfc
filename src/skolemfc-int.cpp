@@ -135,7 +135,7 @@ void SkolemFCInt::SklFCInt::create_g_formula()
     uint32_t y_prime = nVars() + i;
     uint32_t aux_y = nVars() + exists_vars.size()
                      + i;  // Auxiliary variable for each pair y, y'
-    if (verbosity > 2)
+    if (verbosity > 3)
     {
       cout << "c y: " << y + 1 << ", y': " << y_prime + 1
            << ", aux_y: " << aux_y + 1 << endl;
@@ -156,7 +156,7 @@ void SkolemFCInt::SklFCInt::create_g_formula()
 
   cout << "c [sklfc] G formula created with " << g_formula_clauses.size()
        << " clauses and " << nGVars() << " variables." << endl;
-  if (verbosity > 2) print_formula(g_formula_clauses);
+  if (verbosity > 3) print_formula(g_formula_clauses);
 }
 
 bool SkolemFCInt::SklFCInt::add_forall_var(uint32_t a_var)

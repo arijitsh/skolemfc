@@ -152,7 +152,7 @@ void add_skolemfc_options()
   oracle_options.add_options()(
       "no-guarantee",
       po::bool_switch(&noguarantee)->default_value(noguarantee),
-      "Run SkolemFC with better performance, but no theoretical guarantee")(
+      "Run SkolemFC with extreme performance, but no theoretical guarantee")(
       "use-unisamp",
       po::value(&use_unisamp_sampling)->default_value(use_unisamp_sampling),
       "Use UniSamp for high precision sampling")(
@@ -381,6 +381,8 @@ int main(int argc, char** argv)
 
   // The ordering of setting oracles are interdependent
   // Please do not change the order
+
+  skolemfc->set_noguarntee_mode(noguarantee);
 
   skolemfc->set_oracles(use_unisamp_sampling, exactcount_f, exactcount_g);
   skolemfc->set_g_counter_parameters(g_counter_epsilon, g_counter_delta);

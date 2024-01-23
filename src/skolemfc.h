@@ -113,6 +113,7 @@ struct SklFC
   void set_g_counter_parameters(double, double);
   void set_ignore_unsat(bool _ignore_unsat);
   void set_static_samp(bool _static_samp);
+  void set_noguarntee_mode(bool _noguarnatee);
   static void handle_alarm(int sig)
   {
     std::cout << "c Ganak Timeout occurred! Singal:" << sig << std::endl;
@@ -132,6 +133,7 @@ struct SklFC
   bool exactcount_s2 = false;
   bool ignore_unsat = false;
   bool static_samp = false;
+  bool noguarnatee = false;
   double epsilon_gc = 0.2, delta_gc = 0.4;
   double epsilon = 0, delta = 0;
   double start_time_skolemfc, start_time_this;

@@ -591,11 +591,8 @@ void SkolemFC::SklFC::get_sample_num_est()
 
 void SkolemFC::SklFC::unigen_callback(const vector<int>& solution, void*)
 {
-  for (uint32_t i = 0; i < solution.size(); i++)
-  {
-    std::lock_guard<std::mutex> lock(vec_mutex);
-    samples_from_unisamp.push_back(solution);
-  }
+  // std::lock_guard<std::mutex> lock(vec_mutex);
+  samples_from_unisamp.push_back(solution);
 }
 
 void SkolemFC::SklFC::get_samples_multithread(uint64_t samples_needed)
@@ -623,6 +620,8 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
        << (cpuTime() - start_time_skolemfc) << "] starting to get "
        << samples_needed << " samples" << endl;
 
+  int oracle_verb = std::max(0, (int)verb - 2);
+
   auto ug_appmc = new ApproxMC::AppMC;
   auto unigen = new UniGen::UniG(ug_appmc);
   ArjunNS::Arjun* arjun = new ArjunNS::Arjun;
@@ -630,7 +629,7 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
   vector<uint32_t> empty_occ_sampl_vars;
   vector<uint32_t> sampling_vars_orig;
 
-  ug_appmc->set_verbosity(0);
+  ug_appmc->set_verbosity(oracle_verb);
   ug_appmc->set_seed(iteration * _seed);
 
   ug_appmc->set_detach_xors(1);
@@ -638,7 +637,7 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
   ug_appmc->set_sparse(1);
   ug_appmc->set_simplify(1);
 
-  unigen->set_verbosity(0);
+  unigen->set_verbosity(oracle_verb);
 
   if (use_unisamp)
   {
@@ -732,7 +731,7 @@ vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(
     new_clause.push_back(literal);
     formula.push_back(new_clause);
   }
-  if (skolemfc->p->verbosity > 2) skolemfc->p->print_formula(formula);
+  if (skolemfc->p->verbosity > 3) skolemfc->p->print_formula(formula);
   return formula;
 }
 
@@ -804,11 +803,13 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
     double _epsilon,
     double _delta)
 {
+  int oracle_verb = std::max(0, (int)verb - 2);
+
   ApproxMC::AppMC* appmc = new ApproxMC::AppMC;
   ArjunNS::Arjun* arjun = new ArjunNS::Arjun;
 
   arjun->set_seed(seed);
-  arjun->set_verbosity(0);
+  arjun->set_verbosity(oracle_verb);
   arjun->set_simp(1);
   arjun->new_vars(nvars);
 
@@ -834,7 +835,7 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
   const auto ret =
       arjun->get_fully_simplified_renumbered_cnf(sampling_vars, false, true);
 
-  if (skolemfc->p->verbosity > 2)
+  if (skolemfc->p->verbosity >= 2)
   {
     cout << "c [sklfc->arjun] Arjun returned formula with " << ret.nvars
          << " variables " << ret.cnf.size() << " clauses and "
@@ -851,7 +852,7 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
 
   if (_epsilon > 1) appmc->set_pivot_by_sqrt2(1);
 
-  appmc->set_verbosity(verb - 2);
+  appmc->set_verbosity(oracle_verb);
 
   ApproxMC::SolCount c;
   if (!sampling_vars.empty())
@@ -1025,6 +1026,11 @@ void SkolemFC::SklFC::set_g_counter_parameters(double _epsilon, double _delta)
                  (epsilon_ + epsilon_gc * epsilon_ - epsilon_gc));
     skolemfc->p->delta = (skolemfc->p->delta - delta_gc) / (1 + delta_gc);
   }
+  if (noguarnatee)
+  {
+    epsilon_gc = 4.8;
+    delta_gc = 0.8;
+  }
 }
 
 void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w, double delta_w)
@@ -1054,4 +1060,9 @@ void SkolemFC::SklFC::set_ignore_unsat(bool _ignore_unsat)
 void SkolemFC::SklFC::set_static_samp(bool _static_samp)
 {
   static_samp = _static_samp;
+}
+
+void SkolemFC::SklFC::set_noguarntee_mode(bool _noguarnatee)
+{
+  noguarnatee = _noguarnatee;
 }
