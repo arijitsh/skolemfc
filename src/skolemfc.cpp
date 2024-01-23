@@ -32,6 +32,7 @@
 #include <threads.h>
 #include <unigen/unigen.h>
 
+#include <cmath>
 #include <iomanip>
 #include <sstream>
 
@@ -272,8 +273,10 @@ mpz_class SkolemFC::SklFC::get_est0()
   else if (exactcount_s0)
   {
     cout << "c [sklfc] Employing Ganak to count F formula" << endl;
-    est0 -= count_using_ganak(
-        skolemfc->p->nVars(), skolemfc->p->clauses, skolemfc->p->forall_vars);
+    est0 -= count_using_ganak(skolemfc->p->nVars(),
+                              skolemfc->p->clauses,
+                              skolemfc->p->forall_vars,
+                              1);
   }
   else
   {
@@ -308,7 +311,8 @@ mpz_class SkolemFC::SklFC::get_g_count()
     cout << "c [sklfc] Employing Ganak to count G formula" << endl;
     s1size = count_using_ganak(skolemfc->p->nGVars(),
                                skolemfc->p->g_formula_clauses,
-                               skolemfc->p->forall_vars);
+                               skolemfc->p->forall_vars,
+                               1);
   }
   else
   {
@@ -376,20 +380,22 @@ string SkolemFC::SklFC::print_cnf(uint64_t num_clauses,
 
 mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
                                              vector<vector<Lit>> clauses,
-                                             vector<uint> projection)
+                                             vector<uint> projection,
+                                             uint32_t timeout)
 {
   mpz_class ganak_count;
 
   std::stringstream ss;
 
   ss << "p cnf " << nvars << " " << clauses.size() << endl;
+  if (projection.size() > 0){
   ss << "c p show";
   for (uint var : projection)
   {
     ss << " " << var + 1;
   }
   ss << " 0" << endl;
-
+  }
   for (const auto& clause : clauses)
   {
     for (const Lit& lit : clause)
@@ -420,20 +426,20 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
   int toParent[2];
   if (pipe(toParent) == -1)
   {
-    perror("pipe");
-    exit(EXIT_FAILURE);
+    std::cerr << "Fork failed" << std::endl;
+    return 1;
   }
 
   pid = fork();
   if (pid == -1)
   {
     perror("fork");
-    exit(EXIT_FAILURE);
+    _exit(EXIT_FAILURE);
   }
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
-       << (cpuTime() - start_time_skolemfc)
-       << "] counting for G formula using ganak" << endl;
+       << (cpuTime() - start_time_skolemfc) << "] counting formula using ganak"
+       << endl;
 
   if (pid == 0)
   {  // Child process
@@ -448,7 +454,10 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
     exit(EXIT_FAILURE);
   }
   else
-  {                      // Parent process
+  {  // Parent process
+//     if (timeout > 0) alarm(timeout);
+    ganak_timeout = false;
+    int status;
     close(toParent[1]);  // Close the write-end as it's not used by the parent
 
     // Read output from ganak
@@ -463,7 +472,8 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
     close(toParent[0]);  // Close the read-end after reading
 
     // Wait for child process to finish
-    waitpid(pid, NULL, 0);
+    waitpid(pid, &status, 0);
+
 
     // Parse ganakOutput to find the required number and store it in ganak_count
     std::istringstream iss(ganakOutput);
@@ -489,6 +499,8 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
     {
       cout << "c [sklfc] G is UNSAT. Est1 = 0" << endl;
     }
+    if (verb >=2)
+      cout << "c Ganak Count " << ganak_count << endl;
     // Remove the temporary file
     unlink(tmpFilename);
   }
@@ -498,6 +510,11 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
 
 void SkolemFC::SklFC::get_sample_num_est()
 {
+  if (static_samp){
+      sample_num_est = 500;
+  return;
+  }
+
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
        << "] estimating number of samples needed" << endl;
@@ -544,7 +561,10 @@ void SkolemFC::SklFC::get_sample_num_est()
        << "] got a solution by CMS for estimating, now counting that" << endl;
 
   ApproxMC::SolCount c;
-  c = count_using_approxmc(skolemfc->p->nGVars(), clauses, empty, 4.7, 0.2);
+  c = log_count_from_absolute(
+      count_using_ganak(skolemfc->p->nGVars(), clauses, empty, 0));
+  if (c.cellSolCount == 0 )
+    c = count_using_approxmc(skolemfc->p->nGVars(), clauses, empty, 4.66, 0.7);
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
@@ -792,6 +812,13 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
   arjun->set_simp(1);
   arjun->new_vars(nvars);
 
+  if (verb > 2)
+  {
+    cout << "c Running ApproxMC on vars:" << nvars
+         << " clauses: " << clauses.size() << " with epsilon " << _epsilon
+         << " delta " << _delta << endl;
+  }
+
   for (auto& clause : clauses) arjun->add_clause(clause);
 
   vector<uint32_t> sampling_vars;
@@ -824,7 +851,7 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
 
   if (_epsilon > 1) appmc->set_pivot_by_sqrt2(1);
 
-  appmc->set_verbosity(0);
+  appmc->set_verbosity(verb - 2);
 
   ApproxMC::SolCount c;
   if (!sampling_vars.empty())
@@ -893,7 +920,7 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 
   if (show_count())
   {
-    printf("c %10.2f %10lu %15.1f %15.1f \n",
+    printf("c %10.2f %10lu %15.1f     %.2f \n",
            (cpuTime() - start_time_skolemfc),
            iteration,
            get_progress(),
@@ -913,6 +940,17 @@ mpz_class SkolemFC::SklFC::absolute_count_from_appmc(ApproxMC::SolCount c)
   mpz_pow_ui(s1size.get_mpz_t(), mpz_class(2).get_mpz_t(), c.hashCount);
   s1size *= c.cellSolCount;
   return s1size;
+}
+
+ApproxMC::SolCount SkolemFC::SklFC::log_count_from_absolute(mpz_class count)
+{
+  ApproxMC::SolCount c;
+  if (count > 0)
+    c.cellSolCount = 1;
+  else
+    c.cellSolCount = 0;
+  c.hashCount = (uint32_t)mpz_sizeinbase(count.get_mpz_t(), 2) - 1;
+  return c;
 }
 
 void SkolemFC::SklFC::count()
@@ -943,8 +981,7 @@ void SkolemFC::SklFC::count()
 
     cout << "c\nc ---- [ counting ] "
             "----------------------------------------------------------\nc\n";
-    cout << "c\nc   seconds    iterations      progress         estimate      "
-            "modelcount \nc\n";
+    cout << "c\nc   seconds    iterations      progress         estimate \nc\n";
 
     while ((log_skolemcount <= thresh) && okay)
     {
@@ -1012,4 +1049,9 @@ void SkolemFC::SklFC::set_oracles(bool _use_unisamp,
 void SkolemFC::SklFC::set_ignore_unsat(bool _ignore_unsat)
 {
   ignore_unsat = _ignore_unsat;
+}
+
+void SkolemFC::SklFC::set_static_samp(bool _static_samp)
+{
+  static_samp = _static_samp;
 }

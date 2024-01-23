@@ -70,6 +70,7 @@ po::positional_options_description p;
 double startTime;
 uint32_t verbosity = 1;
 bool ignore_unsat_inputs = false;
+bool static_samp_est = false;
 bool noguarantee = false;
 uint32_t use_unisamp_sampling = 1;
 uint32_t exactcount_f = 1;
@@ -139,7 +140,10 @@ void add_skolemfc_options()
           "ignore-unsat",
           po::bool_switch(&ignore_unsat_inputs)
               ->default_value(ignore_unsat_inputs),
-          "Ignore those input variables for which there is no output");
+          "Ignore those input variables for which there is no output")(
+          "static-samp-est",
+          po::bool_switch(&static_samp_est)->default_value(static_samp_est),
+          "Don't employ ApproxMC for sample number estimation");
 
   help_options.add(main_options);
 
@@ -385,6 +389,7 @@ int main(int argc, char** argv)
   skolemfc->set_num_threads(nthreads);
   skolemfc->set_parameters();
   skolemfc->set_ignore_unsat(ignore_unsat_inputs);
+  skolemfc->set_static_samp(static_samp_est);
   skolemfc->set_dklr_parameters(epsilon_weightage_fc, delta_weightage_fc);
 
   skolemfc->count();

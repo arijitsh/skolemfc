@@ -95,7 +95,11 @@ struct SklFC
   ApproxMC::SolCount count_using_approxmc(
       uint64_t, vector<vector<Lit>>, vector<uint>, double, double);
   mpz_class absolute_count_from_appmc(ApproxMC::SolCount);
-  mpz_class count_using_ganak(uint64_t, vector<vector<Lit>>, vector<uint>);
+  mpz_class count_using_ganak(uint64_t,
+                              vector<vector<Lit>>,
+                              vector<uint>,
+                              uint32_t);
+  ApproxMC::SolCount log_count_from_absolute(mpz_class);
 
   void count();
 
@@ -108,6 +112,11 @@ struct SklFC
   void set_oracles(bool, bool, bool);
   void set_g_counter_parameters(double, double);
   void set_ignore_unsat(bool _ignore_unsat);
+  void set_static_samp(bool _static_samp);
+  static void handle_alarm(int sig)
+  {
+    std::cout << "c Ganak Timeout occurred! Singal:" << sig << std::endl;
+  }
 
  private:
   SklFCPrivate* skolemfc = NULL;
@@ -122,6 +131,7 @@ struct SklFC
   bool exactcount_s0 = true;
   bool exactcount_s2 = false;
   bool ignore_unsat = false;
+  bool static_samp = false;
   double epsilon_gc = 0.2, delta_gc = 0.4;
   double epsilon = 0, delta = 0;
   double start_time_skolemfc, start_time_this;
@@ -132,9 +142,11 @@ struct SklFC
   bool okay = true;
   uint32_t seed = 1;
   uint verb = 0;
+  uint verb_oracle = 0;
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);
   vector<vector<int>> samples_from_unisamp;
+  bool ganak_timeout;
 };
 
 }  // namespace SkolemFC
