@@ -330,6 +330,7 @@ mpz_class SkolemFC::SklFC::get_g_count()
        << "]  G formula has (projected) count: " << s1size << endl;
   cout << "c Pass Gcount: " << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc) << endl;
+  if (s1size == 0) okay = false;
   return s1size;
 }
 
@@ -719,6 +720,7 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
 
 mpf_class SkolemFC::SklFC::get_est1(mpz_class s1size)
 {
+  if (!okay) return 0;
   return (thresh / (double)iteration) * (mpf_class)s1size;
 }
 
@@ -983,7 +985,7 @@ void SkolemFC::SklFC::count()
     if (okay) get_samples_multithread(sample_num_est);
     get_and_add_count_multithred();
   }
-  else
+  else if (okay)
   {
     get_samples(sample_num_est);
     cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
