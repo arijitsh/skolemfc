@@ -74,7 +74,7 @@ struct SklFC
   void check_ready();
   void set_num_threads(int nthreads) { numthreads = nthreads; }
   void set_constants();
-  string print_cnf(uint64_t num_clauses,
+  string print_cnf(uint64_t num_vars,
                    vector<vector<Lit>> clauses,
                    vector<uint> projection_vars);
   mpz_class get_est0();

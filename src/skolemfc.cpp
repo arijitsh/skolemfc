@@ -334,14 +334,14 @@ mpz_class SkolemFC::SklFC::get_g_count()
   return s1size;
 }
 
-string SkolemFC::SklFC::print_cnf(uint64_t num_clauses,
+string SkolemFC::SklFC::print_cnf(uint64_t num_vars,
                                   vector<vector<Lit>> clauses,
                                   vector<uint> projection_vars)
 {
   string tempfile;
   std::stringstream ss;
 
-  ss << "p cnf " << num_clauses << " " << clauses.size() << endl;
+  ss << "p cnf " << num_vars << " " << clauses.size() << endl;
   if (projection_vars.size() > 0)
   {
     ss << "c p show";
@@ -387,6 +387,7 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
   mpz_class ganak_count;
 
   std::stringstream ss;
+  if (timeout == 0){ return 0;}
 
   ss << "p cnf " << nvars << " " << clauses.size() << endl;
   if (projection.size() > 0)
@@ -634,12 +635,13 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
   vector<uint32_t> sampling_vars_orig;
 
   ug_appmc->set_verbosity(oracle_verb);
-  ug_appmc->set_seed(iteration);
+  ug_appmc->set_seed(iteration*_seed);
 
   ug_appmc->set_detach_xors(1);
   ug_appmc->set_reuse_models(1);
-  ug_appmc->set_sparse(1);
+  ug_appmc->set_sparse(0);
   ug_appmc->set_simplify(1);
+  ug_appmc->set_var_elim_ratio(1.6);
 
   unigen->set_verbosity(oracle_verb);
 
@@ -651,7 +653,7 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
     ug_appmc->set_delta(0.1);
   }
 
-  arjun->set_seed(seed);
+  arjun->set_seed(_seed);
   arjun->set_verbosity(0);
   arjun->new_vars(skolemfc->p->nGVars());
 
