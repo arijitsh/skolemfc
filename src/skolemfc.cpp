@@ -826,11 +826,11 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
   arjun->set_simp(1);
   arjun->new_vars(nvars);
 
-  if (verb > 2)
+  if (verb > 1)
   {
     cout << "c Running ApproxMC on vars:" << nvars
          << " clauses: " << clauses.size() << " with epsilon " << _epsilon
-         << " delta " << _delta << endl;
+         << " delta " << std::setprecision(15) << _delta << endl;
   }
 
   for (auto& clause : clauses) arjun->add_clause(clause);
@@ -925,7 +925,12 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 
   ApproxMC::SolCount c;
   vector<uint> empty;
-  double _delta = delta_c / thresh.get_d();
+  double _delta;
+  if (iteration == 0 || log_skolemcount < 0.0001)
+    _delta = delta_c / thresh.get_d();
+  else
+    _delta = 0.5 * delta_c * log_skolemcount.get_d()
+             / ((double)iteration * thresh.get_d());
   double _epsilon = 4.657;
 
   c = count_using_approxmc(

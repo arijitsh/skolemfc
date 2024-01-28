@@ -141,7 +141,7 @@ void add_skolemfc_options()
           "count-unsat",
           po::bool_switch(&count_unsat_inputs)
               ->default_value(count_unsat_inputs),
-          "Ignore those input variables for which there is no output")(
+          "Count for those input variables for which there is no output")(
           "no-static-samp",
           po::bool_switch(&static_samp_est)->default_value(static_samp_est),
           "Employ ApproxMC for sample number estimation beforehand");
