@@ -387,7 +387,10 @@ mpz_class SkolemFC::SklFC::count_using_ganak(uint64_t nvars,
   mpz_class ganak_count;
 
   std::stringstream ss;
-  if (timeout == 0){ return 0;}
+  if (timeout == 0)
+  {
+    return 0;
+  }
 
   ss << "p cnf " << nvars << " " << clauses.size() << endl;
   if (projection.size() > 0)
@@ -635,7 +638,7 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
   vector<uint32_t> sampling_vars_orig;
 
   ug_appmc->set_verbosity(oracle_verb);
-  ug_appmc->set_seed(iteration*_seed);
+  ug_appmc->set_seed(iteration * _seed);
 
   ug_appmc->set_detach_xors(1);
   ug_appmc->set_reuse_models(1);
@@ -922,7 +925,7 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
 
   ApproxMC::SolCount c;
   vector<uint> empty;
-  double _delta = 1.0 / (double)sample_num_est;
+  double _delta = delta_c / thresh.get_d();
   double _epsilon = 4.657;
 
   c = count_using_approxmc(
@@ -1053,7 +1056,7 @@ void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w, double delta_w)
   epsilon_f = epsilon * epsilon_w;
   delta_f = delta * delta_w;
   epsilon_s = epsilon - epsilon_f - 0.1;
-  delta_c = delta - delta_f;
+  delta_c = (delta - delta_f);
   epsilon_c = 4.658;
 }
 

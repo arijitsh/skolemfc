@@ -69,18 +69,18 @@ po::variables_map vm;
 po::positional_options_description p;
 double startTime;
 uint32_t verbosity = 1;
-bool ignore_unsat_inputs = false;
-bool static_samp_est = false;
+bool count_unsat_inputs = false;
+bool static_samp_est = true;
 bool noguarantee = false;
 uint32_t use_unisamp_sampling = 1;
 uint32_t exactcount_f = 1;
 uint32_t exactcount_g = 0;
 uint32_t seed = 0;
 uint32_t nthreads = 8;
-double epsilon = 0.96;
-double delta = 0.6;
-double g_counter_epsilon = 0.1;
-double g_counter_delta = 0.1;
+double epsilon = 0.8;
+double delta = 0.4;
+double g_counter_epsilon = 0.08;
+double g_counter_delta = 0.08;
 double epsilon_weightage_fc = 0.6;
 double delta_weightage_fc = 0.5;
 string logfilename;
@@ -111,6 +111,7 @@ void add_skolemfc_options()
   std::ostringstream my_g_counter_delta;
 
   my_epsilon << std::setprecision(8) << epsilon;
+  my_delta << std::setprecision(8) << delta;
   my_g_counter_epsilon << std::setprecision(8) << g_counter_epsilon;
   my_epsilon_weightage_fc << std::setprecision(8) << epsilon_weightage_fc;
   my_delta_weightage_fc << std::setprecision(8) << delta_weightage_fc;
@@ -137,13 +138,13 @@ void add_skolemfc_options()
           "d=0.2 means we are 80%% sure the count is within range as specified "
           "by epsilon. The lower, the higher confidence we have in the count.")(
           "log", po::value(&logfilename), "Logs of SkolemFC execution")(
-          "ignore-unsat",
-          po::bool_switch(&ignore_unsat_inputs)
-              ->default_value(ignore_unsat_inputs),
+          "count-unsat",
+          po::bool_switch(&count_unsat_inputs)
+              ->default_value(count_unsat_inputs),
           "Ignore those input variables for which there is no output")(
-          "static-samp-est",
+          "no-static-samp",
           po::bool_switch(&static_samp_est)->default_value(static_samp_est),
-          "Don't employ ApproxMC for sample number estimation");
+          "Employ ApproxMC for sample number estimation beforehand");
 
   help_options.add(main_options);
 
@@ -390,7 +391,7 @@ int main(int argc, char** argv)
   skolemfc->check_ready();
   skolemfc->set_num_threads(nthreads);
   skolemfc->set_parameters();
-  skolemfc->set_ignore_unsat(ignore_unsat_inputs);
+  skolemfc->set_ignore_unsat(!count_unsat_inputs);
   skolemfc->set_static_samp(static_samp_est);
   skolemfc->set_dklr_parameters(epsilon_weightage_fc, delta_weightage_fc);
 

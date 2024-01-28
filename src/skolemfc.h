@@ -131,7 +131,7 @@ struct SklFC
   bool use_unisamp = false;
   bool exactcount_s0 = true;
   bool exactcount_s2 = false;
-  bool ignore_unsat = false;
+  bool ignore_unsat = true;
   bool static_samp = false;
   bool noguarnatee = false;
   double epsilon_gc = 0.2, delta_gc = 0.4;
