@@ -21,7 +21,7 @@ cd skolemfc
 ./install.sh
 ```
 
-Please follow `INSTALL.md` if the script reports some error.
+Please follow `INSTALL.md` if the script reports some error, or you need more instructions for compiling in other OS, etc.
 
 
 
