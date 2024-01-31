@@ -10,49 +10,19 @@ SkolemFC is an approximate Skolem function counter.
 ## How to Build a Binary
 To build on Linux, you will need the following:
 ```
-sudo apt-get install build-essential cmake
-sudo apt-get install zlib1g-dev libboost-program-options-dev libboost-serialization-dev
-apt-get install libgmp3-dev
+sudo apt install build-essential cmake zlib1g-dev libboost-program-options-dev libboost-serialization-dev libgmp3-dev
 ```
 
-Then, build CryptoMiniSat, Arjun, and SkolemFC:
+Now clone this repository and run `./install.sh`, this should compile SkolemFC and all its dependencies.
+
 ```
-git clone https://github.com/msoos/cryptominisat
-cd cryptominisat
-mkdir build && cd build
-cmake ..
-make
-sudo make install
-sudo ldconfig
-
-cd ../..
-git clone https://github.com/meelgroup/arjun
-cd arjun
-mkdir build && cd build
-cmake ..
-make
-sudo make install
-sudo ldconfig
-
-cd ../..
-git clone https://github.com/meelgroup/approxmc
-cd approxmc
-mkdir build && cd build
-cmake ..
-make
-sudo make install
-sudo ldconfig
-
-
-cd ../..
-git clone https://github.com/meelgroup/skolemfc
+git clone https://github.com/arijitsh/skolemfc/
 cd skolemfc
-mkdir build && cd build
-cmake ..
-make
-sudo make install
-sudo ldconfig
+./install.sh
 ```
+
+Please follow `INSTALL.md` if the script reports some error.
+
 
 
 ## How to Use the Binary
@@ -62,16 +32,22 @@ First, you must translate your problem to QDIMACS and just pass your file as inp
 
 
 ```
-$ SkolemFC --seed 5 myfile.cnf
-c SkolemFC version 0.0.1
-[appmc] FINISHED SkolemFC T: 0.04 s
-c [appmc] Number of solutions is: 2 ** 4
-s fc 2 ** 4
+$ ./skolemfc myfile.qdimacs
+
+c [sklfc] SkolemFC Version: 36cf66a9ae
+c [sklfc] executed with command line: ./skolemfc myfile.qdimacs
+c [sklfc] using epsilon: 0.8 delta: 0.4 seed: 0
+...
+s fc 2 ** 4.00
+...
+c [sklfc] finished T: 0.25
+c [sklfc] iterations: 729
+
 ```
 SkolemFC reports that we have approximately `16 (=2 ** 4)` functions satisfying the QDIMACS specification.
 
 ### Guarantees
-SkolemFC provides so-called "PAC", or Probably Approximately Correct, guarantees. In less fancy words, the system guarantees that the solution found is within a certain tolerance (called "epsilon") with a certain probability (called "delta"). The default tolerance and probability, i.e. epsilon and delta values, are set to 0.8 and 0.2, respectively. Both values are configurable.
+SkolemFC provides so-called "PAC", or Probably Approximately Correct, guarantees. In less fancy words, the system guarantees that the solution found is within a certain tolerance (called "epsilon") with a certain probability (called "delta"). The default tolerance and probability, i.e. epsilon and delta values, are set to 0.8 and 0.4, respectively. Both values are configurable.
 
 
 ### Issues, questions, bugs, etc.
@@ -83,5 +59,6 @@ This work is by Arijit Shaw, Brendan Juba, and Kuldeep S. Meel, as [published in
 
 The benchmarks used in our evaluation can be found [here](https://zenodo.org/records/10404174).
 
-## Old Versions
-The old version, is available under the branch "paper". Please read the README of the old release to know how to compile the code. Old releases should easily compile.
+## Exact Counter
+An exact counter (termed "Baseline" in the paper) for Skolem Functions is available in the folder [`utils/baseline`](https://github.com/meelgroup/skolemfc/tree/main/utils/baseline). Please follow instructions in the README inside that folder for installing tools for that.
+<!-- The old version, is available under the branch "paper". Please read the README of the old release to know how to compile the code. Old releases should easily compile. -->

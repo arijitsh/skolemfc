@@ -13,3 +13,11 @@
 [submodule "deps/unigen"]
 	path = deps/unigen
 	url = https://github.com/arijitsh/unigen.git
+[submodule "utils/baseline/deps/GPMC"]
+	path = utils/baseline/deps/GPMC
+	url = https://git.trs.css.i.nagoya-u.ac.jp/k-hasimt/GPMC.git
+[submodule "utils/baseline/deps/cryptominisat"]
+	path = utils/baseline/deps/cryptominisat
+	url = https://github.com/arijitsh/cryptominisat/
+[submodule "cryptominisat"]
+	branch = allsol
