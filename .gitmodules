@@ -1,0 +1,15 @@
+[submodule "deps/louvain-community"]
+	path = deps/louvain-community
+	url = https://github.com/meelgroup/louvain-community.git
+[submodule "deps/cryptominisat"]
+	path = deps/cryptominisat
+	url = https://github.com/msoos/cryptominisat
+[submodule "deps/arjun"]
+	path = deps/arjun
+	url = https://github.com/meelgroup/arjun.git
+[submodule "deps/approxmc"]
+	path = deps/approxmc
+	url = git@github.com:arijitsh/approxmc.git
+[submodule "deps/unigen"]
+	path = deps/unigen
+	url = https://github.com/arijitsh/unigen.git
