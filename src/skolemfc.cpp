@@ -883,6 +883,12 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
   delete arjun;
   delete appmc;
 
+  if (skolemfc->p->verbosity >= 2)
+  {
+    cout << "c [sklfc->appmc] ApproxMC returned count: " << c.cellSolCount
+         << " * 2 ** " << c.hashCount << endl;
+  }
+
   return c;
 }
 

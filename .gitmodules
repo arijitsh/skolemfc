@@ -9,7 +9,8 @@
 	url = https://github.com/meelgroup/arjun.git
 [submodule "deps/approxmc"]
 	path = deps/approxmc
-	url = git@github.com:arijitsh/approxmc.git
+	url = https://github.com/arijitsh/approxmc.git
+	branch = devel
 [submodule "deps/unigen"]
 	path = deps/unigen
 	url = https://github.com/arijitsh/unigen.git
@@ -19,5 +20,5 @@
 [submodule "utils/baseline/deps/cryptominisat"]
 	path = utils/baseline/deps/cryptominisat
 	url = https://github.com/arijitsh/cryptominisat/
-[submodule "cryptominisat"]
 	branch = allsol
+
