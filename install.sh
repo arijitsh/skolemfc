@@ -1,6 +1,6 @@
 #!/usr/bin/bash
 
-git submodule update --init --recursive
+git submodule update --init
 cd deps
 
 cd louvain-community
@@ -31,7 +31,7 @@ cd unigen
 mkdir build && cd build
 cmake ..
 make -j20
-cd ../..
+cd ..
 
 cd ..
 mkdir build && cd build
