@@ -1,48 +1,44 @@
 #!/usr/bin/bash
-set +x
-set +e
+set -x
+set -e
 
-git submodule update --init
+git submodule update --init --recursive
+(
 cd deps
 
-cd louvain-community
-mkdir -p build
-cd build
+(cd louvain-community
+mkdir -p build && cd build
 cmake ..
 make -j20
-cd ..
+cd ..)
 
-cd cryptominisat
-mkdir -p build
-cd build
+(cd cryptominisat
+mkdir -p build && cd build
 cmake ..
 make -j20
-cd ..
+cd ..)
 
-cd arjun
-mkdir -p build
-cd build
+(cd arjun
+mkdir -p build && cd build
 cmake ..
 make -j20
-cd ..
+cd ..)
 
-cd approxmc
-mkdir -p build
-cd build
+(cd approxmc
+mkdir -p build && cd build
 cmake ..
 make -j20
-cd ..
+cd ..)
 
-cd unigen
-mkdir -p build
-cd -p build
+(cd unigen
+mkdir -p build && cd build
 cmake ..
 make -j20
-cd ..
+cd ..)
 
 cd ..
-mkdir -p build
-cd build
+mkdir -p build && cd build
 cmake ..
 make -j20
 
+)
