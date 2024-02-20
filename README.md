@@ -10,7 +10,7 @@ SkolemFC is an approximate Skolem function counter.
 ## How to Build a Binary
 To build on Linux, you will need the following:
 ```
-sudo apt install build-essential cmake zlib1g-dev libboost-program-options-dev libboost-serialization-dev libgmp3-dev
+sudo apt install build-essential cmake git zlib1g-dev libboost-program-options-dev libboost-serialization-dev libgmp3-dev
 ```
 
 Now clone this repository and run `./install.sh`, this should compile SkolemFC and all its dependencies.

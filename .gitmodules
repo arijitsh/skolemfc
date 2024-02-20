@@ -3,7 +3,7 @@
 	url = https://github.com/meelgroup/louvain-community.git
 [submodule "deps/cryptominisat"]
 	path = deps/cryptominisat
-	url = https://github.com/msoos/cryptominisat
+	url = https://github.com/msoos/cryptominisat.git
 [submodule "deps/arjun"]
 	path = deps/arjun
 	url = https://github.com/meelgroup/arjun.git
