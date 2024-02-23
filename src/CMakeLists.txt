@@ -1,4 +1,4 @@
-# Copyright (c) 2017, Mate Soos
+# Copyright (C) 2024, Arijit Shaw, Brendan Juba, and Kuldeep S. Meel
 #
 # Permission is hereby granted, free of charge, to any person obtaining a copy
 # of this software and associated documentation files (the "Software"), to deal

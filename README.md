@@ -4,7 +4,9 @@
 <!-- ![build](https://github.com/meelgroup/SkolemFC/workflows/build/badge.svg)
 [![Docker Hub](https://img.shields.io/badge/docker-latest-blue.svg)](https://hub.docker.com/r/msoos/SkolemFC/) -->
 
-SkolemFC is an approximate Skolem function counter.
+SkolemFC takes in a F(X,Y) formula as input and returns the number of Boolean function G(X) such that \exists Y F(X, Y) = F(X, G(X)). SkolemFC *counts the number of functions without even generating a single function.*
+
+To learn more about SkolemFC, please have a look at our [AAAI-24 paper](https://arijitsh.github.io/papers/AAAI24-SJM-SkolemFC.pdf).
 
 
 ## How to Build a Binary
@@ -16,7 +18,7 @@ sudo apt install build-essential cmake git zlib1g-dev libboost-program-options-d
 Now clone this repository and run `./install.sh`, this should compile SkolemFC and all its dependencies.
 
 ```
-git clone https://github.com/arijitsh/skolemfc/
+git clone https://github.com/meelgroup/skolemfc/
 cd skolemfc
 ./install.sh
 ```
