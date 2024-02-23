@@ -4,7 +4,7 @@
 <!-- ![build](https://github.com/meelgroup/SkolemFC/workflows/build/badge.svg)
 [![Docker Hub](https://img.shields.io/badge/docker-latest-blue.svg)](https://hub.docker.com/r/msoos/SkolemFC/) -->
 
-SkolemFC takes in a F(X,Y) formula as input and returns the number of Boolean function G(X) such that \exists Y F(X, Y) = F(X, G(X)). SkolemFC *counts the number of functions without even generating a single function.*
+SkolemFC takes in a F(X,Y) formula as input and returns the number of Boolean functions G(X) such that ∃Y F(X, Y) = F(X, G(X)). SkolemFC *counts the number of functions without even generating a single function.*
 
 To learn more about SkolemFC, please have a look at our [AAAI-24 paper](https://arijitsh.github.io/papers/AAAI24-SJM-SkolemFC.pdf).
 
@@ -23,7 +23,7 @@ cd skolemfc
 ./install.sh
 ```
 
-Please follow `INSTALL.md` if the script reports some error, or you need more instructions for compiling in other OS, etc.
+Please follow [`INSTALL.md`](https://github.com/meelgroup/skolemfc/tree/main/INSTALL.md) if the script reports some error, or you need more instructions for compiling in other OS, etc.
 
 
 
