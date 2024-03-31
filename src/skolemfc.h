@@ -87,6 +87,9 @@ struct SklFC
   void get_and_add_count_multithred();
   void get_and_add_count_onethred(vector<vector<int>> samples);
   mpf_class get_est1(mpz_class s1size);
+  bool check_if_approxmc_error_exceeds(mpf_class count,
+                                       mpz_class s2size,
+                                       double maxerror);
   mpf_class get_current_estimate();
   double get_progress();
   void get_sample_num_est();
@@ -108,7 +111,7 @@ struct SklFC
 
   // Set config
   void set_parameters();
-  void set_dklr_parameters(double, double);
+  void set_dklr_parameters(double, double, double);
   void set_oracles(bool, bool, bool);
   void set_g_counter_parameters(double, double);
   void set_ignore_unsat(bool _ignore_unsat);
@@ -139,12 +142,14 @@ struct SklFC
   double start_time_skolemfc, start_time_this;
   double epsilon_f, delta_f;
   double epsilon_s, delta_c, epsilon_c;
+  double max_error_logcounter;
   uint64_t sample_num_est;
   uint64_t next_iter_to_show_output = 1;
   bool okay = true;
   uint32_t seed = 1;
   uint verb = 0;
   uint verb_oracle = 0;
+  uint approxmc_threshold = 35;
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);
   vector<vector<int>> samples_from_unisamp;

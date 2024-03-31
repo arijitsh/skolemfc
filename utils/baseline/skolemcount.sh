@@ -1,5 +1,4 @@
 #!/usr/bin/bash
-# set -x
 
 python="python"
 

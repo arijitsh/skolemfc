@@ -728,6 +728,26 @@ mpf_class SkolemFC::SklFC::get_est1(mpz_class s1size)
   if (!okay) return 0;
   return (thresh / (double)iteration) * (mpf_class)s1size;
 }
+bool SkolemFC::SklFC::check_if_approxmc_error_exceeds(
+    mpf_class count, mpz_class _s2size, double _max_error_logcounter)
+{
+  bool check = false;
+  if (_s2size * log(1 + epsilon_c) > _max_error_logcounter * count)
+  {
+    if (count / _s2size < approxmc_threshold)
+      check = false;
+    else
+    {
+      check = true;
+      cout << "c [sklfc] error by model counting oracle exceeded by "
+              "guarantees, this run failed "
+           << endl;
+      cout << "c [sklfc] try increasing  --max-error-logcounter, currently "
+           << _max_error_logcounter << endl;
+    }
+  }
+  return check;
+}
 
 vector<vector<Lit>> SkolemFC::SklFC::create_formula_from_sample(
     vector<vector<int>> samples, int sample_num)
@@ -1019,6 +1039,9 @@ void SkolemFC::SklFC::count()
   }
   count += get_est1(s2size);
 
+  if (check_if_approxmc_error_exceeds(count, s2size, max_error_logcounter))
+    exit(0);
+
   cout << "c\nc ---- [ result ] "
           "------------------------------------------------------------\nc\n";
 
@@ -1061,10 +1084,13 @@ void SkolemFC::SklFC::set_g_counter_parameters(double _epsilon, double _delta)
   }
 }
 
-void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w, double delta_w)
+void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w,
+                                          double delta_w,
+                                          double _max_error_logcounter)
 {
   assert(epsilon > 0);
-  epsilon_f = (epsilon - 0.1) * epsilon_w;
+  epsilon_f = (epsilon - _max_error_logcounter) * epsilon_w;
+  max_error_logcounter = _max_error_logcounter;
   delta_f = delta * delta_w;
   epsilon_s = epsilon - epsilon_f - 0.1;
   delta_c = (delta - delta_f);

@@ -81,6 +81,7 @@ double epsilon = 0.8;
 double delta = 0.4;
 double g_counter_epsilon = 0.08;
 double g_counter_delta = 0.08;
+double max_error_logcounter = 0.1;
 double epsilon_weightage_fc = 0.6;
 double delta_weightage_fc = 0.5;
 string logfilename;
@@ -106,6 +107,7 @@ void add_skolemfc_options()
 
   std::ostringstream my_delta;
   std::ostringstream my_g_counter_epsilon;
+  std::ostringstream my_max_error_logcounter;
   std::ostringstream my_epsilon_weightage_fc;
   std::ostringstream my_delta_weightage_fc;
   std::ostringstream my_g_counter_delta;
@@ -116,6 +118,7 @@ void add_skolemfc_options()
   my_epsilon_weightage_fc << std::setprecision(8) << epsilon_weightage_fc;
   my_delta_weightage_fc << std::setprecision(8) << delta_weightage_fc;
   my_g_counter_delta << std::setprecision(8) << g_counter_delta;
+  my_max_error_logcounter << std::setprecision(8) << max_error_logcounter;
 
   main_options.add_options()("help,h", "Prints help")(
       "verb,v", po::value(&verbosity)->default_value(1), "verbosity")(
@@ -178,7 +181,11 @@ void add_skolemfc_options()
       "epsilon-g",
       po::value(&g_counter_epsilon)
           ->default_value(g_counter_epsilon, my_g_counter_epsilon.str()),
-      "Error for approximate counter counting size of S2");
+      "Error for approximate counter counting size of S2")(
+      "max-error-logcounter",
+      po::value(&max_error_logcounter)
+          ->default_value(max_error_logcounter, my_max_error_logcounter.str()),
+      "Maximum error limit allowed to logcounter");
 
   help_options.add(oracle_options);
   help_options.add(hidden_options);
@@ -393,7 +400,8 @@ int main(int argc, char** argv)
   skolemfc->set_parameters();
   skolemfc->set_ignore_unsat(!count_unsat_inputs);
   skolemfc->set_static_samp(static_samp_est);
-  skolemfc->set_dklr_parameters(epsilon_weightage_fc, delta_weightage_fc);
+  skolemfc->set_dklr_parameters(
+      epsilon_weightage_fc, delta_weightage_fc, max_error_logcounter);
 
   skolemfc->count();
 
