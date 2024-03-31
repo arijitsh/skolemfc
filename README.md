@@ -6,7 +6,7 @@
 
 SkolemFC takes in a F(X,Y) formula as input and returns the number of Boolean functions G(X) such that ∃Y F(X, Y) = F(X, G(X)). SkolemFC *counts the number of functions without even generating a single function.*
 
-To learn more about SkolemFC, please have a look at our [AAAI-24 paper](https://arijitsh.github.io/papers/AAAI24-SJM-SkolemFC.pdf).
+To learn more about SkolemFC, please have a look at our [AAAI-24 paper](https://arxiv.org/abs/2312.12026).
 
 
 ## How to Build a Binary
