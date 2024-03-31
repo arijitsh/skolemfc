@@ -1064,7 +1064,7 @@ void SkolemFC::SklFC::set_g_counter_parameters(double _epsilon, double _delta)
 void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w, double delta_w)
 {
   assert(epsilon > 0);
-  epsilon_f = epsilon * epsilon_w;
+  epsilon_f = (epsilon - 0.1) * epsilon_w;
   delta_f = delta * delta_w;
   epsilon_s = epsilon - epsilon_f - 0.1;
   delta_c = (delta - delta_f);
