@@ -31,20 +31,6 @@ msg () {
   echo "[skolemcount.sh] $*"
 }
 
-get_est_sample_stoppingrule () {
-  # create sigma
-  ./bin/unisamp --seed 345 --samples 1 --sampleout $samplefile  $samplingcnffile > sampling.log
-  # create F ^ (X = \sigma) and count it
-  gen_files;
-  ithfile=$foldername/1-$cnffile
-  expcount=$(./bin/appmcplus4s2 $ithfile > >(tee counting.log) 2>&1 | grep "^s mc " | awk '{print  $3}')
-  two="2"
-  samplenumest=`echo "$stoppingruletarget * l ($two) / (l ($expcount)) " | bc -l` #TODO remove 1.2 if possible
-  #ceiling function
-  samplenumest=${samplenumest%%.*}
-  echo "[skolemfc] Estimate Number of samples = $samplenumest ($num_e_vars / log ($expcount) )"
-}
-
 set_env () {
   filename=$opt
   samplefile=samples.out
@@ -53,9 +39,6 @@ set_env () {
   unisampseed=345
   samplenumest=0
 
-  epsilonf=`echo "scale=4; ( $epsilon * 0.6 ) " | bc -l `
-  deltaf=`echo "scale=4; ( $delta * 0.5 ) " | bc -l `
-  epsilons=`echo "scale=4; ( $epsilon * 0.3 ) " | bc -l `
 
   basefile=$(basename $filename)
   if [ $basefile != $filename ] ; then
@@ -75,47 +58,15 @@ set_env () {
   num_e_vars=`expr $(grep "^e" $filename | awk '{ print NF }') - 2`
   num_a_vars=`expr $(grep "^a" $filename | awk '{ print NF }') - 2`
 
-  stoppingruletarget=`echo  "(4.0 * $num_e_vars *  l (2 / $deltaf) * (1 + $epsilonf) /( $epsilonf * $epsilonf) )" | bc -l `
-
-  num_counts_needed=`echo  "(100.0 * $num_e_vars *  l (2 / $delta) + 1)" | bc -l `
-  num_counts_needed=${num_counts_needed%%.*} ## ceiling function
-
   counterrestext="^c s exact"
   counterrespos=6
-  pmode="-x"
   num_new_clauses=`expr $num_clauses + $num_vars`
-  appmcdelta=`echo "1 / $num_counts_needed" | bc -l`
   samplingcnffile="sample_F2_${filename}.cnf"
   samplingxcnffile="sample_F2_${filename}_gpmc.cnf"
 
-  counter="./bin/appmcplus4s2 --pivotbysqrt2 1 --d $appmcdelta"
-  pcounter="./bin/gpmc -mode=2"
-  ecounter="./bin/ganak"
+  ecounter="./bin/gpmc"
 
   echo "[skolemfc] vars = $num_vars (a $num_a_vars + e $num_e_vars) clauses = $num_clauses"
-  $python f2_formula_creator.py $filename -a
-
-  if [ $num_counts_needed -ge $limit ] && [ $limit -ne 0 ]  ; then
-    actual_counts_needed=$num_counts_needed
-    num_counts_needed=$limit
-    echo "[skolemfc] needed $actual_counts_needed many counts, capping to $num_counts_needed counts for simplicity"
-  fi
-
-  if [ $exactmode == false ] ; then
-    setapproximation;
-  fi
-
-  if [ $absolute_count == false ] ; then
-    $python f2_formula_creator.py $filename $pmode
-    echo "[skolemfc] GPMC counting the number of solutions for sampling formula <$samplingcnffile>"
-    num_sol_f2=$($pcounter $samplingxcnffile > >(tee counting.log) 2>&1 | grep "$counterrestext" | awk -v field=$counterrespos '{print $field}' )
-    if [ $num_sol_f2 == 0 ] ; then
-      echo "G formula has no solutions"
-      echo "s amc 0 conf"
-      exit 0
-    fi
-    echo "[skolemfc] GPMC returned the count $num_sol_f2"
-  fi
 }
 
 create_sample_or_allsol () {
@@ -125,7 +76,7 @@ create_sample_or_allsol () {
   echo "${aline//a/c ind}" > $cnffile
   grep -P '^(?!(a|e))' $filename >> $cnffile
 
-  $python f2_formula_creator.py $filename $pmode
+  $python f2_formula_creator.py $filename -x
 
   if [ $get_baseline_samps == true ] ; then
     echo "[skolemfc] counting number of solutions for sampling formula"
@@ -142,7 +93,7 @@ create_sample_or_allsol () {
 
   if [ $absolute_count == true ] ; then
     echo "[skolemfc] employing cryptominisat to generate all solutions"
-    ./bin/cryptominisat5_allsol --maxsol 2 --verb 0 --dumpresult $samplefile --onlysampling $samplingcnffile > sampling.log
+    ./bin/cryptominisat5 --maxsol 2 --verb 0 --dumpresult $samplefile --onlysampling $samplingcnffile > sampling.log
     num_counts_needed=`cat $samplefile | wc -l`
     echo "[skolemfc] cryptominisat generated all ($num_counts_needed) solutions of the formula ($SECONDS s)"
     num_sol_f2=$num_counts_needed
@@ -157,18 +108,6 @@ create_sample_or_allsol () {
     echo "[skolemfc] unisamp generated $num_counts_needed samples from $samplingcnffile ($SECONDS s)"
   fi
 }
-
-setapproximation(){
-  rm -rf $foldername
-  ecounter=$counter
-  filecount=0
-  pcounter=$counter
-  counterrestext="^s mc"
-  counterrespos=3
-  pmode="-a"
-  samplingxcnffile="sample_F2_${filename}.cnf"
-}
-
 
 gen_files () {
   mkdir $foldername
@@ -208,7 +147,7 @@ count_absolute () {
       echo "[skolemfc] file ${ithfile} does not exist, serious error"
       stop;
     fi
-    expcount=$(timeout $timeremaining $ecounter $ithfile > >(tee counting.log) 2>&1 | grep "^s mc " | awk '{print  $3}')
+    expcount=$(timeout $timeremaining $ecounter $ithfile > >(tee counting.log) 2>&1 | grep "^c s exact arb int " | awk '{print  $6}')
     count=`echo "scale=5; l ($expcount) / l (2)" | bc -l`
 
     sum_count=`echo "( $sum_count + $count ) " | bc`
@@ -224,11 +163,7 @@ count_absolute () {
 }
 
 
-epsilon=0.8
-delta=0.8
 absolute_count=true
-only_count=false
-only_sample=false
 limit=0
 get_baseline_samps=false
 exactmode=true
@@ -248,9 +183,6 @@ set_env;
 create_sample_or_allsol;
 gen_files;
 count_absolute;
-
-
-
 
 confindent="conf"
 stop;
