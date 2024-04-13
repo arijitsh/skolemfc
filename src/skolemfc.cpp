@@ -883,7 +883,7 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
   appmc->set_epsilon(_epsilon);
   appmc->set_delta(_delta);
 
-  if (_epsilon > 1) appmc->set_pivot_by_sqrt2(1);
+  //   if (_epsilon > 1) appmc->set_pivot_by_sqrt2(1);
 
   appmc->set_verbosity(oracle_verb);
 
@@ -958,6 +958,9 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
     _delta = 0.5 * delta_c * log_skolemcount.get_d()
              / ((double)iteration * thresh.get_d());
   double _epsilon = 4.657;
+
+  //   if (use_roughmc)
+  //     _epsilon = 14.0;
 
   c = count_using_approxmc(
       skolemfc->p->nVars(), sampling_formula, empty, _epsilon, _delta);
