@@ -72,7 +72,7 @@ uint32_t verbosity = 1;
 bool count_unsat_inputs = false;
 bool static_samp_est = true;
 bool noguarantee = false;
-uint32_t use_roughmc = 0;
+bool use_roughmc = false;
 uint32_t use_unisamp_sampling = 1;
 uint32_t exactcount_f = 1;
 uint32_t exactcount_g = 0;
@@ -158,10 +158,10 @@ void add_skolemfc_options()
       "no-guarantee",
       po::bool_switch(&noguarantee)->default_value(noguarantee),
       "Run SkolemFC with extreme performance, but no theoretical guarantee")(
-      "use-unisamp",
-      po::value(&use_roughmc)->default_value(use_roughmc),
-      "Use RoughMC, allowing high error in Model Counter Call")(
       "roughmc",
+      po::bool_switch(&use_roughmc)->default_value(use_roughmc),
+      "Use RoughMC, allowing high error in Model Counter Call")(
+      "use-unisamp",
       po::value(&use_unisamp_sampling)->default_value(use_unisamp_sampling),
       "Use UniSamp for high precision sampling")(
       "exact-f",
@@ -396,7 +396,8 @@ int main(int argc, char** argv)
 
   skolemfc->set_noguarntee_mode(noguarantee);
 
-  skolemfc->set_oracles(use_unisamp_sampling, exactcount_f, exactcount_g);
+  skolemfc->set_oracles(
+      use_roughmc, use_unisamp_sampling, exactcount_f, exactcount_g);
   skolemfc->set_g_counter_parameters(g_counter_epsilon, g_counter_delta);
 
   skolemfc->check_ready();

@@ -286,7 +286,8 @@ mpz_class SkolemFC::SklFC::get_est0()
                              skolemfc->p->clauses,
                              skolemfc->p->forall_vars,
                              epsilon_gc,
-                             delta_gc);
+                             delta_gc,
+                             false);
     est0 -= absolute_count_from_appmc(c);
   }
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
@@ -322,7 +323,8 @@ mpz_class SkolemFC::SklFC::get_g_count()
                              skolemfc->p->g_formula_clauses,
                              skolemfc->p->forall_vars,
                              epsilon_gc,
-                             delta_gc);
+                             delta_gc,
+                             false);
     s1size = absolute_count_from_appmc(c);
   }
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
@@ -569,7 +571,8 @@ void SkolemFC::SklFC::get_sample_num_est()
   //   c = log_count_from_absolute(
   //       count_using_ganak(skolemfc->p->nGVars(), clauses, empty, 0));
   //   if (c.cellSolCount == 0 )
-  c = count_using_approxmc(skolemfc->p->nGVars(), clauses, empty, 4.66, 0.7);
+  c = count_using_approxmc(
+      skolemfc->p->nGVars(), clauses, empty, 4.66, 0.7, false);
 
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
        << (cpuTime() - start_time_skolemfc)
@@ -834,7 +837,8 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
     vector<vector<Lit>> clauses,
     vector<uint> proj_vars,
     double _epsilon,
-    double _delta)
+    double _delta,
+    bool _use_roughmc)
 {
   int oracle_verb = std::max(0, (int)verb - 2);
 
@@ -882,8 +886,15 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
   appmc->set_projection_set(sampling_vars);
   appmc->set_epsilon(_epsilon);
   appmc->set_delta(_delta);
-
-  //   if (_epsilon > 1) appmc->set_pivot_by_sqrt2(1);
+  if (_use_roughmc)
+  {
+    //     appmc->set_roughmc(1);
+    cout << "c [sklfc] count will use roughmc strategy " << endl;
+  }
+  else if (_epsilon > 1)
+  {
+    appmc->set_pivot_by_sqrt2(1);
+  }
 
   appmc->set_verbosity(oracle_verb);
 
@@ -959,11 +970,17 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
              / ((double)iteration * thresh.get_d());
   double _epsilon = 4.657;
 
-  //   if (use_roughmc)
-  //     _epsilon = 14.0;
+  if (use_roughmc)
+  {
+    _epsilon = 14.0;
+  }
 
-  c = count_using_approxmc(
-      skolemfc->p->nVars(), sampling_formula, empty, _epsilon, _delta);
+  c = count_using_approxmc(skolemfc->p->nVars(),
+                           sampling_formula,
+                           empty,
+                           _epsilon,
+                           _delta,
+                           use_roughmc);
 
   double logcount_this_it = (double)(c.hashCount) + log2(c.cellSolCount);
 
@@ -1100,10 +1117,12 @@ void SkolemFC::SklFC::set_dklr_parameters(double epsilon_w,
   epsilon_c = 4.658;
 }
 
-void SkolemFC::SklFC::set_oracles(bool _use_unisamp,
+void SkolemFC::SklFC::set_oracles(bool _use_roughmc,
+                                  bool _use_unisamp,
                                   bool _exactcount_s0,
                                   bool _exactcount_s2)
 {
+  use_roughmc = _use_roughmc;
   use_unisamp = _use_unisamp;
   exactcount_s0 = _exactcount_s0;
   exactcount_s2 = _exactcount_s2;

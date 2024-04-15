@@ -96,7 +96,7 @@ struct SklFC
   vector<vector<Lit>> create_formula_from_sample(vector<vector<int>> samples,
                                                  int sample_num);
   ApproxMC::SolCount count_using_approxmc(
-      uint64_t, vector<vector<Lit>>, vector<uint>, double, double);
+      uint64_t, vector<vector<Lit>>, vector<uint>, double, double, bool);
   mpz_class absolute_count_from_appmc(ApproxMC::SolCount);
   mpz_class count_using_ganak(uint64_t,
                               vector<vector<Lit>>,
@@ -112,7 +112,7 @@ struct SklFC
   // Set config
   void set_parameters();
   void set_dklr_parameters(double, double, double);
-  void set_oracles(bool, bool, bool);
+  void set_oracles(bool, bool, bool, bool);
   void set_g_counter_parameters(double, double);
   void set_ignore_unsat(bool _ignore_unsat);
   void set_static_samp(bool _static_samp);
@@ -131,6 +131,7 @@ struct SklFC
   mpf_class thresh = 1;
   mpz_class s2size;
   uint numthreads;
+  bool use_roughmc = false;
   bool use_unisamp = false;
   bool exactcount_s0 = true;
   bool exactcount_s2 = false;
@@ -149,7 +150,7 @@ struct SklFC
   uint32_t seed = 1;
   uint verb = 0;
   uint verb_oracle = 0;
-  uint approxmc_threshold = 35;
+  uint approxmc_threshold = 5;
   ApproxMC::AppMC appmc_g;
   void unigen_callback(const std::vector<int>& solution, void*);
   vector<vector<int>> samples_from_unisamp;
