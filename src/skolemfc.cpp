@@ -319,12 +319,18 @@ mpz_class SkolemFC::SklFC::get_g_count()
   {
     cout << "c [sklfc] Employing ApproxMC to count G formula" << endl;
     ApproxMC::SolCount c;
+
+    timestart = cpuTime();
+
     c = count_using_approxmc(skolemfc->p->nGVars(),
                              skolemfc->p->g_formula_clauses,
                              skolemfc->p->forall_vars,
                              epsilon_gc,
                              delta_gc,
                              false);
+    timeend = cpuTime();
+    outerappmctime += (timeend - timestart);
+
     s1size = absolute_count_from_appmc(c);
   }
   cout << "c [sklfc] [" << std::setprecision(2) << std::fixed
@@ -648,6 +654,7 @@ void SkolemFC::SklFC::get_samples(uint64_t samples_needed, int _seed)
   ug_appmc->set_sparse(0);
   ug_appmc->set_simplify(1);
   ug_appmc->set_var_elim_ratio(1.6);
+  ug_appmc->set_use_appmc(1);
 
   unigen->set_verbosity(oracle_verb);
 
@@ -737,7 +744,7 @@ bool SkolemFC::SklFC::check_if_approxmc_error_exceeds(
   bool check = false;
   if (_s2size * log(1 + epsilon_c) > _max_error_logcounter * count)
   {
-    if (count / _s2size < approxmc_threshold)
+    if ((count / _s2size < approxmc_threshold) && use_roughmc == false)
       check = false;
     else
     {
@@ -885,18 +892,25 @@ ApproxMC::SolCount SkolemFC::SklFC::count_using_approxmc(
   uint32_t offset_count_by_2_pow = ret.empty_occs;
   appmc->set_projection_set(sampling_vars);
   appmc->set_epsilon(_epsilon);
+  appmc->set_verbosity(1);
   appmc->set_delta(_delta);
   if (_use_roughmc)
   {
-    //     appmc->set_roughmc(1);
-    cout << "c [sklfc] count will use roughmc strategy " << endl;
+    appmc->set_use_appmc(0);
+    //     cout << "c [sklfc] count will use roughmc strategy " << endl;
+    assert((_epsilon > 1));
   }
-  else if (_epsilon > 1)
+  else
   {
-    appmc->set_pivot_by_sqrt2(1);
+    appmc->set_use_appmc(1);
+    //     cout << "c [sklfc] count will NOT use roughmc strategy " << endl;
   }
+  //   else if (_epsilon > 1)
+  //   {
+  //     appmc->set_pivot_by_sqrt2(1);
+  //   }
 
-  appmc->set_verbosity(oracle_verb);
+  //   appmc->set_verbosity(oracle_verb);
 
   ApproxMC::SolCount c;
   if (!sampling_vars.empty())
@@ -953,7 +967,13 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
       if (new_total_sample_number > 1000) new_total_sample_number = 1000;
       samples_from_unisamp.clear();
       sample_clearance_iteration = iteration;
+      timestart = cpuTime();
+
       get_samples(new_total_sample_number, seed);
+
+      timeend = cpuTime();
+
+      unigentime += (timeend - timestart);
     }
   }
 
@@ -975,12 +995,18 @@ void SkolemFC::SklFC::get_and_add_count_for_a_sample()
     _epsilon = 14.0;
   }
 
+  timestart = cpuTime();
+
   c = count_using_approxmc(skolemfc->p->nVars(),
                            sampling_formula,
                            empty,
                            _epsilon,
                            _delta,
                            use_roughmc);
+
+  timeend = cpuTime();
+
+  internalappmctime += (timeend - timestart);
 
   double logcount_this_it = (double)(c.hashCount) + log2(c.cellSolCount);
 
@@ -1022,9 +1048,20 @@ ApproxMC::SolCount SkolemFC::SklFC::log_count_from_absolute(mpz_class count)
   return c;
 }
 
+void printFormatted(double value,
+                    double percentage,
+                    const std::string& description)
+{
+  std::cout << std::left << std::setw(1) << "c" << std::right << std::setw(10)
+            << std::fixed << std::setprecision(2) << value << std::setw(7)
+            << std::fixed << std::setprecision(2) << percentage * 100 << "%"
+            << " " << description << std::endl;
+}
+
 void SkolemFC::SklFC::count()
 {
   mpf_class count;
+  double starTime = cpuTime();
 
   set_constants();
 
@@ -1033,6 +1070,7 @@ void SkolemFC::SklFC::count()
   skolemfc->p->create_g_formula();
 
   s2size = get_g_count();
+  double gcounttime = cpuTime() - starTime;
 
   if (okay) get_sample_num_est();
 
@@ -1066,6 +1104,18 @@ void SkolemFC::SklFC::count()
           "------------------------------------------------------------\nc\n";
 
   cout << "s fc 2 ** " << count << endl;
+  double totaltime = cpuTime() - starTime;
+
+  cout << "c\nc ---- [ profiling ] "
+          "---------------------------------------------------------\nc\n";
+
+  cout << "c process time taken by individual solving procedures \nc\n";
+
+  printFormatted(
+      gcounttime, gcounttime / totaltime, "ApproxMC for G size estimation");
+  printFormatted(
+      internalappmctime, internalappmctime / totaltime, "Internal ApproxMC");
+  printFormatted(unigentime, unigentime / totaltime, "UniGen");
 }
 
 const char* SkolemFC::SklFC::get_version_info()

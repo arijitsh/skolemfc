@@ -127,6 +127,8 @@ struct SklFC
   std::vector<std::thread> threads;
   std::mutex cout_mutex, vec_mutex, iter_mutex;
   uint64_t iteration = 0;
+  double internalappmctime = 0, outerappmctime = 0, unigentime = 0;
+  double timestart = 0, timeend = 0;
   mpf_class log_skolemcount = 0;
   mpf_class thresh = 1;
   mpz_class s2size;
