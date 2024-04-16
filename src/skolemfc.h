@@ -77,6 +77,9 @@ struct SklFC
   string print_cnf(uint64_t num_vars,
                    vector<vector<Lit>> clauses,
                    vector<uint> projection_vars);
+  void show_cnf(uint64_t num_vars,
+                vector<vector<Lit>> clauses,
+                vector<uint> projection_vars);
   mpz_class get_est0();
   mpz_class get_g_count();
   mpz_class get_g_count_approxmc();

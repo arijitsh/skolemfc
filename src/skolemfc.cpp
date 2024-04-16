@@ -342,6 +342,30 @@ mpz_class SkolemFC::SklFC::get_g_count()
   return s1size;
 }
 
+void SkolemFC::SklFC::show_cnf(uint64_t num_vars,
+                               vector<vector<Lit>> clauses,
+                               vector<uint> projection_vars)
+{
+  cout << "p cnf " << num_vars << " " << clauses.size() << endl;
+  if (projection_vars.size() > 0)
+  {
+    cout << "c p show";
+    for (uint var : projection_vars)
+    {
+      cout << " " << var + 1;
+    }
+    cout << " 0" << endl;
+  }
+  for (const auto& clause : clauses)
+  {
+    for (const Lit& lit : clause)
+    {
+      cout << lit << " ";
+    }
+    cout << "0" << endl;
+  }
+}
+
 string SkolemFC::SklFC::print_cnf(uint64_t num_vars,
                                   vector<vector<Lit>> clauses,
                                   vector<uint> projection_vars)
@@ -1053,7 +1077,7 @@ void printFormatted(double value,
                     const std::string& description)
 {
   std::cout << std::left << std::setw(1) << "c" << std::right << std::setw(10)
-            << std::fixed << std::setprecision(2) << value << std::setw(7)
+            << std::fixed << std::setprecision(2) << value << std::setw(15)
             << std::fixed << std::setprecision(2) << percentage * 100 << "%"
             << " " << description << std::endl;
 }
@@ -1108,14 +1132,17 @@ void SkolemFC::SklFC::count()
 
   cout << "c\nc ---- [ profiling ] "
           "---------------------------------------------------------\nc\n";
+  std::cout << std::left << std::setw(1) << "c" << std::right << std::setw(10)
+            << std::fixed << "seconds" << std::setw(15) << std::fixed
+            << "percentage" << std::endl;
 
-  cout << "c process time taken by individual solving procedures \nc\n";
+  printFormatted(gcounttime, gcounttime / totaltime, " ApproxMC Outer");
+  printFormatted(
+      internalappmctime, internalappmctime / totaltime, " ApproxMC Internal");
+  printFormatted(unigentime, unigentime / totaltime, " UniGen");
 
-  printFormatted(
-      gcounttime, gcounttime / totaltime, "ApproxMC for G size estimation");
-  printFormatted(
-      internalappmctime, internalappmctime / totaltime, "Internal ApproxMC");
-  printFormatted(unigentime, unigentime / totaltime, "UniGen");
+  cout << "c -----------------------------------\n";
+  printFormatted(totaltime, totaltime / totaltime, " Total\nc\n");
 }
 
 const char* SkolemFC::SklFC::get_version_info()
